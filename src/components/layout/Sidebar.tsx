@@ -11,7 +11,8 @@ import {
   Target, 
   BarChart3, 
   AlertTriangle, 
-  Settings 
+  Settings,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const navItems = [
   { name: 'Commitments', href: '/commitments', icon: Target },
   { name: 'FTE Analytics', href: '/analytics/fte', icon: BarChart3 },
   { name: 'Risk Matrix', href: '/analytics/risks', icon: AlertTriangle },
+  { name: 'System Guide', href: '/guide', icon: BookOpen },
   { name: 'Admin', href: '/admin', icon: Settings },
 ];
 
