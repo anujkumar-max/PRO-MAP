@@ -38,6 +38,7 @@ export interface ProjectHierarchy {
   dsp?: string;
   ci?: string; // Inspector
   si?: string;
+  asi?: string;
 }
 
 // ---- Workstream ----
