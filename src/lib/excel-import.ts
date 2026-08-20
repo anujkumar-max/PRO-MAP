@@ -2,8 +2,9 @@ import * as xlsx from 'xlsx';
 import { batchImportPersons, batchImportProjects, batchImportAssignments, setPersonCounter } from './firestore';
 import type { Person, Project, Assignment } from '@/types';
 
-function generateRandomId() {
-  return Math.random().toString(36).substring(2, 9);
+function cleanStr(val: any): string {
+  if (val === undefined || val === null) return '';
+  return String(val).trim();
 }
 
 export async function importExcelData(file: File): Promise<{ projects: number; persons: number; assignments: number }> {
@@ -20,65 +21,71 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
 
         const projectsToImport: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>[] = [];
         const personsToImport: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>[] = [];
-        const assignmentsToImport: Omit<Assignment, 'id'>[] = [];
         
         let personCounter = 1;
         const personMap = new Map<string, string>(); // name to proId
+        const validSheetNames: string[] = [];
 
+        // 1. Process Projects and Persons
         for (const sheetName of sheetNames) {
           const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+
           const rawData = xlsx.utils.sheet_to_json<any>(sheet, { header: 1 });
-          if (rawData.length < 2) continue;
+          if (!rawData || rawData.length < 2) continue;
           
           let headerRowIndex = 0;
-          if (rawData[0][0] && typeof rawData[0][0] === 'string' && rawData[0][0].includes('PART-1')) {
+          if (rawData[0] && rawData[0][0] && typeof rawData[0][0] === 'string' && rawData[0][0].includes('PART-1')) {
             headerRowIndex = 1;
           }
           
-          const headers = rawData[headerRowIndex] as string[];
+          const headers = (rawData[headerRowIndex] || []) as string[];
           if (!headers || headers.length === 0) continue;
 
           const rows = rawData.slice(headerRowIndex + 1);
 
-          // Get hierarchy from the first data row
-          const firstRow = rows.find(r => r && r.length > 0);
+          // Get hierarchy from the first non-empty data row
+          const firstRow = rows.find(r => r && Array.isArray(r) && r.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== ''));
+          
+          const dspIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('dsp'));
+          const ciIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase().includes('ci') || h.toLowerCase().includes('inspector')));
+          const siIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('si') && !h.toLowerCase().includes('ci'));
+          const spIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase() === 'sp' || h.toLowerCase() === 'sp ts'));
+          const addlSpIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('addl. sp'));
+
           const hierarchy = {
-            igp: 'IGP',
-            sp: 'SP',
-            dsp: firstRow ? firstRow[headers.findIndex(h => h && h.toLowerCase().includes('dsp'))] : '',
-            ci: firstRow ? firstRow[headers.findIndex(h => h && h.toLowerCase().includes('ci') || h && h.toLowerCase().includes('inspector'))] : '',
-            si: firstRow ? firstRow[headers.findIndex(h => h && h.toLowerCase().includes('si') && !h.toLowerCase().includes('ci'))] : '',
+            igp: 'IGP (Tech Services)',
+            sp: (firstRow && spIdx >= 0 && firstRow[spIdx]) ? cleanStr(firstRow[spIdx]) : '',
+            addlSp: (firstRow && addlSpIdx >= 0 && firstRow[addlSpIdx]) ? cleanStr(firstRow[addlSpIdx]) : '',
+            dsp: (firstRow && dspIdx >= 0 && firstRow[dspIdx]) ? cleanStr(firstRow[dspIdx]) : '',
+            ci: (firstRow && ciIdx >= 0 && firstRow[ciIdx]) ? cleanStr(firstRow[ciIdx]) : '',
+            si: (firstRow && siIdx >= 0 && firstRow[siIdx]) ? cleanStr(firstRow[siIdx]) : '',
           };
 
           const project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'> = {
-            name: sheetName,
-            description: `Imported project ${sheetName}`,
+            name: sheetName.trim(),
+            description: `Tech Services Project: ${sheetName.trim()}`,
             status: 'Active',
             hierarchy
           };
           projectsToImport.push(project);
-          
-          // Temporary project ID to link assignments
-          const tempProjectId = `temp_proj_${generateRandomId()}`;
+          validSheetNames.push(sheetName);
 
           const nameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('name') && !h.toLowerCase().includes('workstream'));
-          const rankIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase() === 'rank');
-          const genNoIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase() === 'gen no' || h.toLowerCase() === 'gen_no'));
-          const deputationIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('deputation'));
+          const rankIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('rank'));
+          const genNoIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase().includes('gen no') || h.toLowerCase().includes('gen_no') || h.toLowerCase().includes('gen')));
+          const deputationIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase().includes('deputation') || h.toLowerCase().includes('attachment') || h.toLowerCase().includes('sourcing')));
           const workingSinceIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('working since'));
-          
-          const workstreamNameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream name'));
-          const workstreamDescIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream description'));
-          const allocationIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('allocation'));
-          const functionalRoleIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('functional role'));
-          const raciIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase() === 'raci');
 
           for (const row of rows) {
-            if (!row || row.length === 0 || !row[nameIdx]) continue;
+            if (!row || !Array.isArray(row)) continue;
+            const rawName = nameIdx >= 0 ? row[nameIdx] : null;
+            if (!rawName || typeof rawName !== 'string' || rawName.trim() === '') continue;
 
-            const name = row[nameIdx];
+            const name = cleanStr(rawName);
+            if (!name) continue;
+
             let proId = personMap.get(name);
-            let tempPersonId = `temp_pers_${name}`;
             
             if (!proId) {
               proId = `PRO-${String(personCounter).padStart(3, '0')}`;
@@ -88,109 +95,122 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
               const person: Omit<Person, 'id' | 'createdAt' | 'updatedAt'> = {
                 proId,
                 name,
-                rank: rankIdx >= 0 ? row[rankIdx] || 'Other' : 'Other',
-                genNo: genNoIdx >= 0 ? row[genNoIdx] || '' : '',
-                deputationType: deputationIdx >= 0 ? row[deputationIdx] || '' : '',
-                workingSince: workingSinceIdx >= 0 ? row[workingSinceIdx]?.toString() || '' : '',
+                rank: rankIdx >= 0 && row[rankIdx] ? cleanStr(row[rankIdx]) : 'Other',
+                genNo: genNoIdx >= 0 && row[genNoIdx] ? cleanStr(row[genNoIdx]) : '',
+                deputationType: deputationIdx >= 0 && row[deputationIdx] ? cleanStr(row[deputationIdx]) as any : '',
+                workingSince: workingSinceIdx >= 0 && row[workingSinceIdx] ? cleanStr(row[workingSinceIdx]) : '',
                 status: 'Active'
               };
               personsToImport.push(person);
             }
-
-            let allocation = allocationIdx >= 0 ? parseFloat(row[allocationIdx]) : 100;
-            if (isNaN(allocation)) allocation = 100;
-            if (allocation <= 1) allocation = allocation * 100; // handle 0.x format
-
-            const assignment: Omit<Assignment, 'id'> = {
-              personId: tempPersonId,
-              projectId: tempProjectId,
-              workstreamName: workstreamNameIdx >= 0 ? row[workstreamNameIdx] || 'General' : 'General',
-              workstreamDescription: workstreamDescIdx >= 0 ? row[workstreamDescIdx] || '' : '',
-              allocationPercent: allocation,
-              functionalRole: functionalRoleIdx >= 0 ? row[functionalRoleIdx] || 'Developer/Engineer' : 'Developer/Engineer',
-              raciType: raciIdx >= 0 ? row[raciIdx] || 'Responsible' : 'Responsible',
-              primaryOrSupport: 'Primary',
-              reportingTo: hierarchy.si || hierarchy.ci || hierarchy.dsp || ''
-            };
-            assignmentsToImport.push(assignment);
           }
         }
 
-        // Upload projects
+        // 2. Batch import Projects & Persons
         const projectIds = await batchImportProjects(projectsToImport);
-        
-        // Upload persons
         const personIds = await batchImportPersons(personsToImport);
         await setPersonCounter(personCounter - 1);
-        
-        // Map temp IDs to actual IDs for assignments
-        const projectMap = new Map(); // sheetname to actual ID
-        projectsToImport.forEach((p, idx) => projectMap.set(p.name, projectIds[idx]));
-        
-        const actualPersonMap = new Map(); // name to actual ID
-        personsToImport.forEach((p, idx) => actualPersonMap.set(p.name, personIds[idx]));
 
-        const finalAssignments = assignmentsToImport.map(a => {
-          const personName = a.personId.replace('temp_pers_', '');
-          // Need to find original sheetname for project. We use a naive approach here since tempProjectId logic is lost in the loop context.
-          // Better approach: track indices.
-          return {
-            ...a,
-            personId: actualPersonMap.get(personName) || a.personId,
-            projectId: projectIds[0], // Simplified, actual logic needs sheet to projectId mapping properly
-          };
+        // Build name-to-actual-ID maps
+        const projectMap = new Map<string, string>();
+        validSheetNames.forEach((sheetName, idx) => {
+          projectMap.set(sheetName, projectIds[idx]);
         });
-        
-        // Let's fix assignment mapping properly. 
-        // We'll reset assignment creation.
-        const properAssignmentsToImport: Omit<Assignment, 'id'>[] = [];
-        let pIndex = 0;
-        for (const sheetName of sheetNames) {
-           const sheet = workbook.Sheets[sheetName];
-           const rawData = xlsx.utils.sheet_to_json<any>(sheet, { header: 1 });
-           if (rawData.length < 2) continue;
-           let headerRowIndex = 0;
-           if (rawData[0][0] && typeof rawData[0][0] === 'string' && rawData[0][0].includes('PART-1')) headerRowIndex = 1;
-           const headers = rawData[headerRowIndex] as string[];
-           if (!headers || headers.length === 0) continue;
-           const rows = rawData.slice(headerRowIndex + 1);
 
-           const nameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('name') && !h.toLowerCase().includes('workstream'));
-           const workstreamNameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream name'));
-           const workstreamDescIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream description'));
-           const allocationIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('allocation'));
-           const functionalRoleIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('functional role'));
-           const raciIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase() === 'raci');
+        const actualPersonMap = new Map<string, string>();
+        personsToImport.forEach((p, idx) => {
+          actualPersonMap.set(p.name, personIds[idx]);
+        });
 
-           for (const row of rows) {
-             if (!row || row.length === 0 || !row[nameIdx]) continue;
-             const name = row[nameIdx];
-             const personId = actualPersonMap.get(name);
-             if (!personId) continue;
-             
-             let allocation = allocationIdx >= 0 ? parseFloat(row[allocationIdx]) : 100;
-             if (isNaN(allocation)) allocation = 100;
-             if (allocation <= 1) allocation = allocation * 100;
+        // 3. Build and batch import Assignments
+        const assignmentsToImport: Omit<Assignment, 'id'>[] = [];
 
-             properAssignmentsToImport.push({
-               personId,
-               projectId: projectIds[pIndex],
-               workstreamName: workstreamNameIdx >= 0 ? row[workstreamNameIdx] || 'General' : 'General',
-               workstreamDescription: workstreamDescIdx >= 0 ? row[workstreamDescIdx] || '' : '',
-               allocationPercent: allocation,
-               functionalRole: functionalRoleIdx >= 0 ? row[functionalRoleIdx] || 'Developer/Engineer' : 'Developer/Engineer',
-               raciType: raciIdx >= 0 ? row[raciIdx] || 'Responsible' : 'Responsible',
-               primaryOrSupport: 'Primary',
-               reportingTo: ''
-             });
-           }
-           pIndex++;
+        for (const sheetName of validSheetNames) {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) continue;
+
+          const rawData = xlsx.utils.sheet_to_json<any>(sheet, { header: 1 });
+          if (!rawData || rawData.length < 2) continue;
+          
+          let headerRowIndex = 0;
+          if (rawData[0] && rawData[0][0] && typeof rawData[0][0] === 'string' && rawData[0][0].includes('PART-1')) {
+            headerRowIndex = 1;
+          }
+          
+          const headers = (rawData[headerRowIndex] || []) as string[];
+          if (!headers || headers.length === 0) continue;
+
+          const rows = rawData.slice(headerRowIndex + 1);
+          const currentProjectId = projectMap.get(sheetName);
+          if (!currentProjectId) continue;
+
+          const nameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('name') && !h.toLowerCase().includes('workstream'));
+          const workstreamNameIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream name') || (h && typeof h === 'string' && h.toLowerCase() === 'workstream_name'));
+          const workstreamDescIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('workstream description') || (h && typeof h === 'string' && h.toLowerCase() === 'workstream_description'));
+          const allocationIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('allocation'));
+          const functionalRoleIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase().includes('functional role') || h.toLowerCase().includes('functional_role')));
+          const raciIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('raci'));
+
+          const dspIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('dsp'));
+          const ciIdx = headers.findIndex(h => h && typeof h === 'string' && (h.toLowerCase().includes('ci') || h.toLowerCase().includes('inspector')));
+          const siIdx = headers.findIndex(h => h && typeof h === 'string' && h.toLowerCase().includes('si') && !h.toLowerCase().includes('ci'));
+
+          const firstRow = rows.find(r => r && Array.isArray(r) && r.some(cell => cell !== undefined && cell !== null));
+          const supervisor = (firstRow && siIdx >= 0 && firstRow[siIdx]) 
+            ? cleanStr(firstRow[siIdx]) 
+            : (firstRow && ciIdx >= 0 && firstRow[ciIdx])
+            ? cleanStr(firstRow[ciIdx])
+            : (firstRow && dspIdx >= 0 && firstRow[dspIdx])
+            ? cleanStr(firstRow[dspIdx])
+            : '';
+
+          for (const row of rows) {
+            if (!row || !Array.isArray(row)) continue;
+            const rawName = nameIdx >= 0 ? row[nameIdx] : null;
+            if (!rawName || typeof rawName !== 'string' || rawName.trim() === '') continue;
+
+            const name = cleanStr(rawName);
+            const personId = actualPersonMap.get(name);
+            if (!personId) continue;
+
+            let allocation = 100;
+            if (allocationIdx >= 0 && row[allocationIdx] !== undefined && row[allocationIdx] !== null) {
+              const parsed = parseFloat(String(row[allocationIdx]));
+              if (!isNaN(parsed)) {
+                allocation = parsed <= 1 ? parsed * 100 : parsed;
+              }
+            }
+
+            const rawRole = functionalRoleIdx >= 0 && row[functionalRoleIdx] ? cleanStr(row[functionalRoleIdx]) : 'User Support';
+            const rawRaci = raciIdx >= 0 && row[raciIdx] ? cleanStr(row[raciIdx]) : 'Responsible';
+            const workstreamName = workstreamNameIdx >= 0 && row[workstreamNameIdx] ? cleanStr(row[workstreamNameIdx]) : sheetName;
+            const workstreamDesc = workstreamDescIdx >= 0 && row[workstreamDescIdx] ? cleanStr(row[workstreamDescIdx]) : '';
+
+            assignmentsToImport.push({
+              personId,
+              projectId: currentProjectId,
+              workstreamName: workstreamName || sheetName,
+              workstreamDescription: workstreamDesc,
+              allocationPercent: Math.round(allocation),
+              functionalRole: rawRole,
+              raciType: (rawRaci.includes('Accountable') ? 'Accountable' : rawRaci.includes('Consulted') ? 'Consulted' : rawRaci.includes('Informed') ? 'Informed' : 'Responsible') as any,
+              primaryOrSupport: 'Primary',
+              reportingTo: supervisor
+            });
+          }
         }
 
-        await batchImportAssignments(properAssignmentsToImport);
+        if (assignmentsToImport.length > 0) {
+          await batchImportAssignments(assignmentsToImport);
+        }
 
-        resolve({ projects: projectsToImport.length, persons: personsToImport.length, assignments: properAssignmentsToImport.length });
+        resolve({ 
+          projects: projectsToImport.length, 
+          persons: personsToImport.length, 
+          assignments: assignmentsToImport.length 
+        });
       } catch (err) {
+        console.error('Import error:', err);
         reject(err);
       }
     };

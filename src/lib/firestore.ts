@@ -344,10 +344,13 @@ async function logAudit(
 
 // ---- Batch Import (for Excel) ----
 
+function sanitizeForFirestore(obj: any): any {
+  return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? '' : value)));
+}
+
 export async function batchImportPersons(persons: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<string[]> {
   const ids: string[] = [];
-  // Firestore batch limit is 500 operations per batch
-  const BATCH_SIZE = 250; // Leave room for counter updates
+  const BATCH_SIZE = 250;
 
   for (let i = 0; i < persons.length; i += BATCH_SIZE) {
     const chunk = persons.slice(i, i + BATCH_SIZE);
@@ -355,11 +358,11 @@ export async function batchImportPersons(persons: Omit<Person, 'id' | 'createdAt
 
     for (const person of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.persons));
-      batch.set(docRef, {
+      batch.set(docRef, sanitizeForFirestore({
         ...person,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      }));
       ids.push(docRef.id);
     }
 
@@ -378,11 +381,11 @@ export async function batchImportAssignments(assignments: Omit<Assignment, 'id'>
 
     for (const assignment of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.assignments));
-      batch.set(docRef, {
+      batch.set(docRef, sanitizeForFirestore({
         ...assignment,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      }));
     }
 
     await batch.commit();
@@ -399,11 +402,11 @@ export async function batchImportProjects(projects: Omit<Project, 'id' | 'create
 
     for (const project of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.projects));
-      batch.set(docRef, {
+      batch.set(docRef, sanitizeForFirestore({
         ...project,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      });
+      }));
       ids.push(docRef.id);
     }
 
