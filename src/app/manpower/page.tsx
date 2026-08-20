@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { usePersons, useAssignments, useProjects } from '@/lib/hooks/useRealtimeData';
 import { createPerson } from '@/lib/firestore';
 import { cn } from '@/lib/utils';
@@ -33,6 +34,8 @@ export default function ManpowerPage() {
     
     return {
       assignmentId: a.id,
+      personId: a.personId,
+      projectId: a.projectId,
       proId: person?.proId || '-',
       personName: person?.name || '-',
       rank: person?.rank || '-',
@@ -156,20 +159,32 @@ export default function ManpowerPage() {
                     row.totalAllocation > 100 ? "bg-red-500/5" : row.totalAllocation < 100 ? "bg-amber-500/5" : ""
                   )}
                 >
-                  <td className="p-4">{row.proId}</td>
-                  <td className="p-4 font-medium">{row.personName}</td>
-                  <td className="p-4">{row.rank}</td>
-                  <td className="p-4">{row.projectName}</td>
-                  <td className="p-4">{row.workstream}</td>
-                  <td className="p-4 text-right">{row.allocation}%</td>
+                  <td className="p-4">
+                    <Link href={`/people/detail?id=${row.personId}`} className="text-blue-400 hover:underline font-mono">
+                      {row.proId}
+                    </Link>
+                  </td>
+                  <td className="p-4 font-medium">
+                    <Link href={`/people/detail?id=${row.personId}`} className="text-white hover:text-blue-300 transition-colors">
+                      {row.personName}
+                    </Link>
+                  </td>
+                  <td className="p-4 text-slate-300">{row.rank}</td>
+                  <td className="p-4">
+                    <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium">
+                      {row.projectName}
+                    </Link>
+                  </td>
+                  <td className="p-4 text-slate-300">{row.workstream}</td>
+                  <td className="p-4 text-right font-mono">{row.allocation}%</td>
                   <td className={cn(
-                    "p-4 text-right font-medium",
+                    "p-4 text-right font-medium font-mono",
                     row.totalAllocation > 100 ? "text-red-400" : row.totalAllocation < 100 ? "text-amber-400" : "text-emerald-400"
                   )}>
                     {row.totalAllocation}%
                   </td>
-                  <td className="p-4">{row.role}</td>
-                  <td className="p-4">{row.raci}</td>
+                  <td className="p-4 text-slate-300">{row.role}</td>
+                  <td className="p-4 text-slate-300">{row.raci}</td>
                 </tr>
               ))}
               {matrixData.length === 0 && (
