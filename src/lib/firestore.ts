@@ -344,8 +344,19 @@ async function logAudit(
 
 // ---- Batch Import (for Excel) ----
 
-function sanitizeForFirestore(obj: any): any {
-  return JSON.parse(JSON.stringify(obj, (key, value) => (value === undefined ? '' : value)));
+function cleanData(obj: any): any {
+  if (obj === null || obj === undefined) return '';
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(cleanData);
+  
+  const result: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      result[key] = cleanData(val);
+    }
+  }
+  return result;
 }
 
 export async function batchImportPersons(persons: Omit<Person, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<string[]> {
@@ -358,11 +369,11 @@ export async function batchImportPersons(persons: Omit<Person, 'id' | 'createdAt
 
     for (const person of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.persons));
-      batch.set(docRef, sanitizeForFirestore({
-        ...person,
+      batch.set(docRef, {
+        ...cleanData(person),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }));
+      });
       ids.push(docRef.id);
     }
 
@@ -381,11 +392,11 @@ export async function batchImportAssignments(assignments: Omit<Assignment, 'id'>
 
     for (const assignment of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.assignments));
-      batch.set(docRef, sanitizeForFirestore({
-        ...assignment,
+      batch.set(docRef, {
+        ...cleanData(assignment),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }));
+      });
     }
 
     await batch.commit();
@@ -402,11 +413,11 @@ export async function batchImportProjects(projects: Omit<Project, 'id' | 'create
 
     for (const project of chunk) {
       const docRef = doc(collection(db, COLLECTIONS.projects));
-      batch.set(docRef, sanitizeForFirestore({
-        ...project,
+      batch.set(docRef, {
+        ...cleanData(project),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }));
+      });
       ids.push(docRef.id);
     }
 
