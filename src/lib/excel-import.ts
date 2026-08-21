@@ -86,6 +86,8 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
             const role = r[14] ? cleanStr(r[14]) : 'User Support';
             const raci = r[15] ? cleanStr(r[15]) : 'Responsible';
             const proId = r[16] ? cleanStr(r[16]) : '';
+            const normName = name.replace(/[\s\.\-_]+/g, '').toUpperCase();
+            const personKey = proId ? proId : normName;
 
             if (!projectMap.has(currentProjectName)) {
               projectMap.set(currentProjectName, {
@@ -102,8 +104,21 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
               });
             }
 
-            if (!personMap.has(name)) {
-              personMap.set(name, {
+            let targetPerson: any = null;
+            for (const p of personMap.values()) {
+              const existingNorm = p.name.replace(/[\s\.\-_]+/g, '').toUpperCase();
+              if (existingNorm === normName || (proId && p.proId === proId)) {
+                targetPerson = p;
+                if (name.includes(' ') && !p.name.includes(' ')) {
+                  p.name = name;
+                }
+                break;
+              }
+            }
+
+            if (!targetPerson) {
+              targetPerson = {
+                key: personKey,
                 proId: proId || (`PRO-${String(personMap.size + 1).padStart(3, '0')}`),
                 name,
                 rank,
@@ -111,13 +126,16 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
                 deputationType: deputation as any,
                 workingSince,
                 status: 'Active'
-              });
+              };
+              personMap.set(personKey, targetPerson);
             }
 
             const supervisor = currentSi || currentCi || currentDsp || '';
 
             rawAssignments.push({
-              personName: name,
+              personKey: targetPerson.key,
+              personName: targetPerson.name,
+              proId: targetPerson.proId,
               projectName: currentProjectName,
               workstreamName: wsName,
               workstreamDescription: wsDesc,
@@ -140,10 +158,10 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
           projectsToImport.forEach((p, idx) => projIdMap.set(p.name, projectIds[idx]));
 
           const persIdMap = new Map<string, string>();
-          personsToImport.forEach((p, idx) => persIdMap.set(p.name, personIds[idx]));
+          personsToImport.forEach((p, idx) => persIdMap.set((p as any).key || p.proId, personIds[idx]));
 
           const assignmentsToImport: Omit<Assignment, 'id'>[] = rawAssignments.map(a => ({
-            personId: persIdMap.get(a.personName) || '',
+            personId: persIdMap.get(a.personKey) || '',
             projectId: projIdMap.get(a.projectName) || '',
             workstreamName: a.workstreamName,
             workstreamDescription: a.workstreamDescription,

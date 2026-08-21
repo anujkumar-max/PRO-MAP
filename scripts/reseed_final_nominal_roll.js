@@ -71,7 +71,7 @@ async function batchImport(collectionName, items) {
 }
 
 async function run() {
-  console.log('=== STARTING COMPLETE RESEED WITH FINAL NOMINAL ROLL DATA ===');
+  console.log('=== STARTING RESEED WITH ROBUST PRO-ID & NORMALIZED NAME DEDUPLICATION ===');
   
   await wipeCollection('projects');
   await wipeCollection('persons');
@@ -96,7 +96,7 @@ async function run() {
   let currentAsi = '';
 
   const projectMap = new Map(); // name -> project obj
-  const personMap = new Map();  // name -> person obj
+  const personMap = new Map();  // personKey -> person obj
   const rawAssignments = [];
 
   rows.forEach((r, idx) => {
@@ -124,7 +124,7 @@ async function run() {
     }
 
     const name = r[6] ? String(r[6]).trim() : '';
-    if (!name) return;
+    if (!name || name.toLowerCase().includes('name')) return;
 
     const rank = r[7] ? String(r[7]).trim() : 'Staff';
     const genNo = r[8] ? String(r[8]).trim() : '';
@@ -140,7 +140,9 @@ async function run() {
     const role = r[14] ? String(r[14]).trim() : 'User Support';
     const raci = r[15] ? String(r[15]).trim() : 'Responsible';
     const proId = r[16] ? String(r[16]).trim() : '';
-    const remarks = r[17] ? String(r[17]).trim() : '';
+
+    const normName = name.replace(/[\s\.\-_]+/g, '').toUpperCase();
+    const personKey = proId ? proId : normName;
 
     if (!projectMap.has(currentProjectName)) {
       projectMap.set(currentProjectName, {
@@ -157,8 +159,22 @@ async function run() {
       });
     }
 
-    if (!personMap.has(name)) {
-      personMap.set(name, {
+    let targetPerson = null;
+    for (const p of personMap.values()) {
+      const existingNorm = p.name.replace(/[\s\.\-_]+/g, '').toUpperCase();
+      if (existingNorm === normName || (proId && p.proId === proId)) {
+        targetPerson = p;
+        // Improve name if spaced
+        if (name.includes(' ') && !p.name.includes(' ')) {
+          p.name = name;
+        }
+        break;
+      }
+    }
+
+    if (!targetPerson) {
+      targetPerson = {
+        key: personKey,
         proId: proId || (`PRO-${String(personMap.size + 1).padStart(3, '0')}`),
         name,
         rank,
@@ -166,13 +182,16 @@ async function run() {
         deputationType: deputation,
         workingSince,
         status: 'Active'
-      });
+      };
+      personMap.set(personKey, targetPerson);
     }
 
     const supervisor = currentSi || currentCi || currentDsp || '';
 
     rawAssignments.push({
-      personName: name,
+      personKey: targetPerson.key,
+      personName: targetPerson.name,
+      proId: targetPerson.proId,
       projectName: currentProjectName,
       workstreamName: wsName,
       workstreamDescription: wsDesc,
@@ -197,15 +216,15 @@ async function run() {
   const counterRef = doc(db, 'counters', 'personCounter');
   await setDoc(counterRef, { current: personsToImport.length });
 
-  // Map names to actual Firestore IDs
+  // Map keys to Firestore IDs
   const projIdMap = new Map();
   projectsToImport.forEach((p, idx) => projIdMap.set(p.name, projectIds[idx]));
 
   const persIdMap = new Map();
-  personsToImport.forEach((p, idx) => persIdMap.set(p.name, personIds[idx]));
+  personsToImport.forEach((p, idx) => persIdMap.set(p.key, personIds[idx]));
 
   const assignmentsToImport = rawAssignments.map(a => ({
-    personId: persIdMap.get(a.personName),
+    personId: persIdMap.get(a.personKey),
     projectId: projIdMap.get(a.projectName),
     workstreamName: a.workstreamName,
     workstreamDescription: a.workstreamDescription,
@@ -283,7 +302,7 @@ async function run() {
 
   // Generate 30 Commitments for 2026-08
   const commitments = assignmentsToImport.slice(0, 30).map((a, idx) => {
-    const person = personsToImport.find(p => persIdMap.get(p.name) === a.personId);
+    const person = personsToImport.find(p => persIdMap.get(p.key) === a.personId);
     const project = projectsToImport.find(p => projIdMap.get(p.name) === a.projectId);
     const target = 10;
     const achievement = idx % 4 === 0 ? 6 : idx % 6 === 0 ? 4 : 10;
@@ -306,7 +325,7 @@ async function run() {
   });
   await batchImport('commitments', commitments);
 
-  console.log('=== RESEED COMPLETE: 35 PROJECTS, 143 PERSONNEL, 175 ASSIGNMENTS, 35 HEALTH CARDS, 50 SCORECARDS, 30 COMMITMENTS ===');
+  console.log('=== RESEED SUCCESS: UNIFIED MULTI-PROJECT PERSONNEL INCLUDING J. MOUNIKA (PRO-069) ===');
 }
 
 run().catch(console.error);
