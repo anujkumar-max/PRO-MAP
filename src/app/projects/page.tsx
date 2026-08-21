@@ -47,20 +47,33 @@ import type { Assignment, ProjectHealth, Project } from '@/types';
 function ProjectsContent() {
   const searchParams = useSearchParams();
   const initialProjectId = searchParams.get('id');
+  const initialHealth = searchParams.get('health');
 
   const { data: projects, loading: projectsLoading } = useProjects();
   const { data: projectFTEs, loading: fteLoading } = useProjectFTEs();
   const { data: allPersons } = usePersons();
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId);
+  const [healthFilter, setHealthFilter] = useState<'all' | 'green' | 'amber' | 'red'>('all');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Sync state if URL search param changes
+  // Sync state if URL search params change
   useEffect(() => {
     const idFromUrl = searchParams.get('id');
     if (idFromUrl) {
       setSelectedProjectId(idFromUrl);
+    }
+
+    const hFromUrl = searchParams.get('health')?.toLowerCase();
+    if (hFromUrl === 'green' || hFromUrl === 'on_track' || hFromUrl === 'ontrack') {
+      setHealthFilter('green');
+    } else if (hFromUrl === 'amber' || hFromUrl === 'at_risk' || hFromUrl === 'atrisk') {
+      setHealthFilter('amber');
+    } else if (hFromUrl === 'red' || hFromUrl === 'critical') {
+      setHealthFilter('red');
+    } else if (hFromUrl === 'all') {
+      setHealthFilter('all');
     }
   }, [searchParams]);
 
@@ -73,9 +86,49 @@ function ProjectsContent() {
 
   const loading = projectsLoading || fteLoading;
 
-  const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Map project with health status from projectFTEs
+  const projectListWithHealth = React.useMemo(() => {
+    const fteMap = new Map(projectFTEs.map((f) => [f.projectId, f]));
+    return projects.map((p) => {
+      const stats = fteMap.get(p.id);
+      const healthStatus = (stats?.status || 'green') as 'green' | 'amber' | 'red';
+      return {
+        ...p,
+        stats,
+        healthStatus,
+      };
+    });
+  }, [projects, projectFTEs]);
+
+  // Counts for tabs
+  const healthCounts = React.useMemo(() => {
+    return {
+      all: projectListWithHealth.length,
+      green: projectListWithHealth.filter((p) => p.healthStatus === 'green').length,
+      amber: projectListWithHealth.filter((p) => p.healthStatus === 'amber').length,
+      red: projectListWithHealth.filter((p) => p.healthStatus === 'red').length,
+    };
+  }, [projectListWithHealth]);
+
+  // Filtered by health & search
+  const filteredProjects = React.useMemo(() => {
+    let list = projectListWithHealth;
+    if (healthFilter !== 'all') {
+      list = list.filter((p) => p.healthStatus === healthFilter);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      list = list.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.description || '').toLowerCase().includes(q) ||
+          (p.hierarchy?.dsp || '').toLowerCase().includes(q) ||
+          (p.hierarchy?.ci || '').toLowerCase().includes(q) ||
+          (p.hierarchy?.si || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [projectListWithHealth, healthFilter, search]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -122,27 +175,105 @@ function ProjectsContent() {
             Projects &amp; Departmental Initiatives
           </h1>
           <p className="text-slate-400 mt-1">
-            Click on any project to view all assigned personnel, workstreams, RACI roles, and health scorecards.
+            Filter by Project Health status (On Track, At Risk, Critical) or click any project to view assigned personnel roster.
           </p>
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-medium transition-all shadow-lg shadow-blue-600/20"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-white font-medium transition-all shadow-lg shadow-blue-600/20 text-sm font-semibold"
         >
-          <Plus className="w-5 h-5" /> Add Project
+          <Plus className="w-4 h-4" /> Add Project
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search all 38 projects..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-slate-800/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-        />
+      {/* Health Filter Tabs & Search Bar */}
+      <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+        
+        {/* Health Filter Pills */}
+        <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/80 text-xs">
+          <button
+            onClick={() => setHealthFilter('all')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+              healthFilter === 'all'
+                ? 'bg-blue-600 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            )}
+          >
+            All Projects
+            <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">
+              {healthCounts.all}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setHealthFilter('green')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+              healthFilter === 'green'
+                ? 'bg-emerald-600 text-white shadow'
+                : 'text-slate-400 hover:text-emerald-400'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            On Track (Green)
+            <span className="px-1.5 py-0.2 bg-emerald-950/80 text-emerald-300 rounded-full text-[10px] border border-emerald-500/30">
+              {healthCounts.green}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setHealthFilter('amber')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+              healthFilter === 'amber'
+                ? 'bg-amber-600 text-white shadow'
+                : 'text-slate-400 hover:text-amber-400'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-amber-400" />
+            At Risk (Amber)
+            <span className="px-1.5 py-0.2 bg-amber-950/80 text-amber-300 rounded-full text-[10px] border border-amber-500/30">
+              {healthCounts.amber}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setHealthFilter('red')}
+            className={cn(
+              'px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5',
+              healthFilter === 'red'
+                ? 'bg-red-600 text-white shadow'
+                : 'text-slate-400 hover:text-red-400'
+            )}
+          >
+            <span className="w-2 h-2 rounded-full bg-red-400" />
+            Critical (Red)
+            <span className="px-1.5 py-0.2 bg-red-950/80 text-red-300 rounded-full text-[10px] border border-red-500/30">
+              {healthCounts.red}
+            </span>
+          </button>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative max-w-md w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search projects, command, officers..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Projects Grid */}
@@ -156,7 +287,10 @@ function ProjectsContent() {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       >
         {filteredProjects.map((project) => {
-          const stats = projectFTEs.find((f) => f.projectId === project.id);
+          const stats = project.stats;
+          const isGreen = project.healthStatus === 'green';
+          const isAmber = project.healthStatus === 'amber';
+          const isRed = project.healthStatus === 'red';
           
           return (
             <motion.div
@@ -168,23 +302,36 @@ function ProjectsContent() {
                   setSelectedProjectId(project.id);
                   window.history.pushState({}, '', `/projects?id=${project.id}`);
                 }}
-                className="group block h-full p-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl hover:bg-white/10 hover:border-blue-500/40 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-blue-900/20"
+                className={cn(
+                  "group block h-full p-6 bg-white/5 backdrop-blur-xl border rounded-2xl hover:bg-white/10 transition-all duration-300 cursor-pointer shadow-lg hover:shadow-blue-900/20",
+                  isGreen && "border-white/10 hover:border-emerald-500/40 border-t-2 border-t-emerald-500/40",
+                  isAmber && "border-amber-500/20 hover:border-amber-500/50 border-t-2 border-t-amber-500",
+                  isRed && "border-red-500/30 hover:border-red-500/60 border-t-2 border-t-red-500"
+                )}
               >
-                <div className="flex justify-between items-start mb-3">
+                <div className="flex justify-between items-start mb-3 gap-2">
                   <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-2">
                     {project.name}
                   </h3>
+                  
+                  {/* Health Badge */}
                   <div
                     className={cn(
-                      'px-2.5 py-0.5 text-xs font-semibold rounded-full border flex-shrink-0',
-                      project.status === 'Active'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : project.status === 'Completed'
-                        ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                        : 'bg-slate-500/10 text-slate-400 border-slate-500/20'
+                      'px-2.5 py-0.5 text-[11px] font-bold rounded-full border flex-shrink-0 flex items-center gap-1.5',
+                      isGreen && 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+                      isAmber && 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+                      isRed && 'bg-red-500/15 text-red-400 border-red-500/30'
                     )}
                   >
-                    {project.status}
+                    <span 
+                      className={cn(
+                        "w-1.5 h-1.5 rounded-full",
+                        isGreen && "bg-emerald-400 animate-pulse",
+                        isAmber && "bg-amber-400",
+                        isRed && "bg-red-400"
+                      )} 
+                    />
+                    {isGreen ? 'On Track' : isAmber ? 'At Risk' : 'Critical'}
                   </div>
                 </div>
                 
@@ -198,7 +345,7 @@ function ProjectsContent() {
                       <Users className="w-3.5 h-3.5 text-blue-400" /> Team Size
                     </div>
                     <div className="text-lg font-bold text-white">
-                      {stats?.headcount || 0} <span className="text-xs text-slate-400 font-normal">officers</span>
+                      {stats?.headcount || 0} <span className="text-xs text-slate-400 font-normal">personnel</span>
                     </div>
                   </div>
                   <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
@@ -224,20 +371,17 @@ function ProjectsContent() {
                 <div className="flex items-center justify-between pt-3 border-t border-white/10 text-xs">
                   <div className="flex items-center gap-2">
                     <Activity className="w-3.5 h-3.5 text-slate-400" />
-                    <span className="text-slate-400">Health:</span>
-                    <div
+                    <span className="text-slate-400">Health Status:</span>
+                    <span 
                       className={cn(
-                        'w-2 h-2 rounded-full',
-                        stats?.status === 'green'
-                          ? 'bg-emerald-500'
-                          : stats?.status === 'amber'
-                          ? 'bg-amber-500'
-                          : stats?.status === 'red'
-                          ? 'bg-red-500'
-                          : 'bg-slate-500'
+                        "font-semibold",
+                        isGreen && "text-emerald-400",
+                        isAmber && "text-amber-400",
+                        isRed && "text-red-400"
                       )}
-                    />
-                    <span className="capitalize text-slate-300 font-medium">{stats?.status || 'Active'}</span>
+                    >
+                      {isGreen ? '🟢 On Track' : isAmber ? '🟡 At Risk' : '🔴 Critical'}
+                    </span>
                   </div>
                   <span className="flex items-center gap-1 text-blue-400 font-medium group-hover:translate-x-1 transition-transform">
                     View Team <ArrowRight className="w-3.5 h-3.5" />
@@ -247,6 +391,14 @@ function ProjectsContent() {
             </motion.div>
           );
         })}
+        
+        {filteredProjects.length === 0 && (
+          <div className="col-span-full bg-white/5 border border-white/10 rounded-2xl p-12 text-center text-slate-400 space-y-2">
+            <Activity className="w-8 h-8 text-slate-500 mx-auto" />
+            <p className="text-base font-semibold text-white">No projects match the selected filter</p>
+            <p className="text-xs">Try selecting a different health status tab or clearing the search query.</p>
+          </div>
+        )}
       </motion.div>
 
       {/* Add Project Modal */}

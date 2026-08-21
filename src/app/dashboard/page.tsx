@@ -9,7 +9,8 @@ import {
   AlertTriangle,
   Clock,
   UserX,
-  CheckCircle2
+  CheckCircle2,
+  ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -122,15 +123,30 @@ export default function DashboardPage() {
       </motion.div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Project Health Chart */}
+        {/* Project Health Card - Clickable to Projects Module */}
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="glass-card rounded-2xl p-6 lg:col-span-1 flex flex-col"
+          className="glass-card rounded-2xl p-6 lg:col-span-1 flex flex-col hover:border-blue-500/40 transition-all group"
         >
-          <h3 className="text-lg font-semibold text-white mb-6">Project Health</h3>
-          <div className="flex-1 min-h-[250px] relative">
+          <div className="flex justify-between items-center mb-4">
+            <Link href="/projects" className="flex items-center gap-2 group/title">
+              <h3 className="text-lg font-semibold text-white group-hover/title:text-blue-400 transition-colors">
+                Project Health
+              </h3>
+              <ArrowRight className="w-4 h-4 text-slate-500 group-hover/title:text-blue-400 group-hover/title:translate-x-1 transition-all" />
+            </Link>
+            <Link 
+              href="/projects" 
+              className="text-xs text-blue-400 hover:text-blue-300 font-semibold px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 transition-all"
+            >
+              View Projects →
+            </Link>
+          </div>
+
+          {/* Donut Chart - Click to view all projects */}
+          <Link href="/projects" className="flex-1 min-h-[220px] relative block cursor-pointer group/chart" title="Click to view all projects">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -153,17 +169,48 @@ export default function DashboardPage() {
               </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-3xl font-bold text-white">{stats.activeProjects}</span>
-              <span className="text-xs text-slate-400 uppercase tracking-wider">Active</span>
+              <span className="text-3xl font-bold text-white group-hover/chart:text-blue-400 transition-colors">{stats.activeProjects}</span>
+              <span className="text-xs text-slate-400 uppercase tracking-wider">Active Projects</span>
             </div>
-          </div>
-          <div className="flex justify-center gap-4 mt-4">
-            {healthData.map((item) => (
-              <div key={item.name} className="flex items-center gap-2">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                <span className="text-xs text-slate-300">{item.value}</span>
+          </Link>
+
+          {/* Health Status Breakdown - Clickable chips with direct filter */}
+          <div className="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-800">
+            <Link 
+              href="/projects?health=green" 
+              className="flex flex-col items-center p-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500/50 transition-all group/chip"
+              title="Filter On Track projects"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] text-slate-300 group-hover/chip:text-emerald-400 font-semibold">On Track</span>
               </div>
-            ))}
+              <span className="text-base font-extrabold font-mono text-emerald-400">{stats.projectsGreen}</span>
+            </Link>
+
+            <Link 
+              href="/projects?health=amber" 
+              className="flex flex-col items-center p-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/50 transition-all group/chip"
+              title="Filter At Risk projects"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="text-[11px] text-slate-300 group-hover/chip:text-amber-400 font-semibold">At Risk</span>
+              </div>
+              <span className="text-base font-extrabold font-mono text-amber-400">{stats.projectsAmber}</span>
+            </Link>
+
+            <Link 
+              href="/projects?health=red" 
+              className="flex flex-col items-center p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 hover:border-red-500/50 transition-all group/chip"
+              title="Filter Critical projects"
+            >
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <div className="w-2 h-2 rounded-full bg-red-400" />
+                <span className="text-[11px] text-slate-300 group-hover/chip:text-red-400 font-semibold">Critical</span>
+              </div>
+              <span className="text-base font-extrabold font-mono text-red-400">{stats.projectsRed}</span>
+            </Link>
           </div>
         </motion.div>
 
