@@ -180,7 +180,7 @@ export function useDashboardStats(): {
     highPerformers: currentScorecards.filter((s) => s.iciTotal >= 80).length,
     underutilised: Array.from(personAllocations.entries()).filter(([, total]) => total < 50).length,
     overallocated: Array.from(personAllocations.entries()).filter(([, total]) => total > 100).length,
-    keyPersonRisks: 0, // Will be calculated by risk analyzer
+    balancedOptimal: Array.from(personAllocations.entries()).filter(([, total]) => total === 100).length,
     delayedDeliverables: currentCommitments.filter((c) => c.status === 'red').length,
   };
 

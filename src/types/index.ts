@@ -202,7 +202,7 @@ export interface DashboardStats {
   highPerformers: number; // ICI 80+
   underutilised: number;
   overallocated: number;
-  keyPersonRisks: number;
+  balancedOptimal: number;
   delayedDeliverables: number;
 }
 
