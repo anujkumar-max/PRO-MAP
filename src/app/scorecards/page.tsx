@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useScorecards, usePersons } from '@/lib/hooks/useRealtimeData';
 import { createOrUpdateScorecard } from '@/lib/firestore';
 import { cn, getCurrentMonth, getIciColor, getIciBg } from '@/lib/utils';
-import { Plus, X, BarChart2, Edit3, Award, Target, Clock, Lightbulb, Users, FileText, Save, Search } from 'lucide-react';
-import { MonthlyScorecard } from '@/types';
+import { Plus, X, BarChart2, Edit3, Award, Target, Clock, Lightbulb, Users, FileText, Save, Search, CheckCircle, MinusCircle } from 'lucide-react';
+import { MonthlyScorecard, Person } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 const SCORE_FIELDS = [
@@ -46,12 +46,20 @@ function getBarColor(val: number, max: number) {
   return 'bg-red-500';
 }
 
+// Merged row type: every person + their scorecard (if any)
+interface PersonRow {
+  person: Person;
+  scorecard: MonthlyScorecard | null;
+}
+
 export default function ScorecardsPage() {
   const [month, setMonth] = useState(getCurrentMonth());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [editingScorecard, setEditingScorecard] = useState<MonthlyScorecard | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'evaluated' | 'pending'>('all');
   
   const { data: scorecards, loading: loadingScorecards } = useScorecards(month);
   const { data: persons, loading: loadingPersons } = usePersons();
@@ -67,8 +75,69 @@ export default function ScorecardsPage() {
     documentationScore: 0,
   });
 
-  // Reset form when modal opens for a new entry
+  // Build merged list: ALL persons + their scorecards (if any)
+  const allRows: PersonRow[] = useMemo(() => {
+    if (loadingPersons || loadingScorecards) return [];
+    const scorecardMap = new Map<string, MonthlyScorecard>();
+    scorecards.forEach(s => scorecardMap.set(s.personId, s));
+
+    return persons.map(p => ({
+      person: p,
+      scorecard: scorecardMap.get(p.id) || null,
+    }));
+  }, [persons, scorecards, loadingPersons, loadingScorecards]);
+
+  // Filter by tab + search
+  const filteredRows = useMemo(() => {
+    let rows = allRows;
+
+    // Tab filter
+    if (filterTab === 'evaluated') {
+      rows = rows.filter(r => r.scorecard !== null);
+    } else if (filterTab === 'pending') {
+      rows = rows.filter(r => r.scorecard === null);
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      rows = rows.filter(r =>
+        r.person.name.toLowerCase().includes(q) ||
+        r.person.proId.toLowerCase().includes(q) ||
+        (r.person.rank || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Sort: evaluated first (by ICI desc), then pending (by name asc)
+    rows.sort((a, b) => {
+      if (a.scorecard && !b.scorecard) return -1;
+      if (!a.scorecard && b.scorecard) return 1;
+      if (a.scorecard && b.scorecard) return b.scorecard.iciTotal - a.scorecard.iciTotal;
+      return a.person.name.localeCompare(b.person.name);
+    });
+
+    return rows;
+  }, [allRows, filterTab, searchQuery]);
+
+  // Open modal for a person (with or without existing scorecard)
+  const openScoring = (person: Person, scorecard: MonthlyScorecard | null) => {
+    setEditingPerson(person);
+    setEditingScorecard(scorecard);
+    setFormData({
+      personId: person.id,
+      deliveryScore: scorecard?.deliveryScore ?? 0,
+      qualityScore: scorecard?.qualityScore ?? 0,
+      timelinessScore: scorecard?.timelinessScore ?? 0,
+      problemSolvingScore: scorecard?.problemSolvingScore ?? 0,
+      collaborationScore: scorecard?.collaborationScore ?? 0,
+      documentationScore: scorecard?.documentationScore ?? 0,
+    });
+    setIsModalOpen(true);
+  };
+
+  // Open modal for new entry via button (person select dropdown)
   const openNewScorecard = () => {
+    setEditingPerson(null);
     setEditingScorecard(null);
     setFormData({
       personId: '',
@@ -82,23 +151,9 @@ export default function ScorecardsPage() {
     setIsModalOpen(true);
   };
 
-  // Open modal pre-filled with existing scorecard data when clicking a person row
-  const openEditScorecard = (scorecard: MonthlyScorecard) => {
-    setEditingScorecard(scorecard);
-    setFormData({
-      personId: scorecard.personId,
-      deliveryScore: scorecard.deliveryScore,
-      qualityScore: scorecard.qualityScore,
-      timelinessScore: scorecard.timelinessScore,
-      problemSolvingScore: scorecard.problemSolvingScore,
-      collaborationScore: scorecard.collaborationScore,
-      documentationScore: scorecard.documentationScore,
-    });
-    setIsModalOpen(true);
-  };
-
   const closeModal = () => {
     setIsModalOpen(false);
+    setEditingPerson(null);
     setEditingScorecard(null);
   };
 
@@ -139,7 +194,9 @@ export default function ScorecardsPage() {
   }
 
   // Stats
-  const avgIci = scorecards.length ? Math.round(scorecards.reduce((sum, s) => sum + s.iciTotal, 0) / scorecards.length) : 0;
+  const evaluatedCount = allRows.filter(r => r.scorecard !== null).length;
+  const pendingCount = allRows.filter(r => r.scorecard === null).length;
+  const avgIci = evaluatedCount ? Math.round(scorecards.reduce((sum, s) => sum + s.iciTotal, 0) / evaluatedCount) : 0;
   const exceptionalCount = scorecards.filter(s => s.classification === 'Exceptional').length;
   const reviewCount = scorecards.filter(s => s.classification === 'Role Review' || s.classification === 'Needs Optimisation').length;
 
@@ -148,22 +205,8 @@ export default function ScorecardsPage() {
   scorecards.forEach(s => { if (dist[s.classification] !== undefined) dist[s.classification]++; });
   const chartData = Object.keys(dist).map(k => ({ name: k, count: dist[k] }));
 
-  // Filtered scorecards
-  const filteredScorecards = searchQuery.trim()
-    ? scorecards.filter(s => {
-        const q = searchQuery.toLowerCase();
-        const p = persons.find(per => per.id === s.personId);
-        return (
-          (p?.name || '').toLowerCase().includes(q) ||
-          (p?.proId || '').toLowerCase().includes(q) ||
-          (s.personName || '').toLowerCase().includes(q) ||
-          (s.personProId || '').toLowerCase().includes(q)
-        );
-      })
-    : scorecards;
-
   // Selected person info for modal
-  const selectedPerson = persons.find(p => p.id === formData.personId);
+  const selectedPerson = editingPerson || persons.find(p => p.id === formData.personId);
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -185,13 +228,34 @@ export default function ScorecardsPage() {
             onClick={openNewScorecard}
             className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold"
           >
-            <Plus className="w-4 h-4" /> Evaluate Officer
+            <Plus className="w-4 h-4" /> New Evaluation
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
+          <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Total Personnel</h3>
+          <div className="text-4xl font-bold text-white">{persons.length}</div>
+          <p className="text-xs text-slate-500 mt-1">In department</p>
+        </div>
+        <div 
+          onClick={() => setFilterTab('evaluated')}
+          className={cn("bg-white/5 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-white/10", filterTab === 'evaluated' ? 'border-emerald-500 ring-1 ring-emerald-500/30' : 'border-white/10')}
+        >
+          <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Evaluated</h3>
+          <div className="text-4xl font-bold text-emerald-400">{evaluatedCount}</div>
+          <p className="text-xs text-slate-500 mt-1">Scored this month</p>
+        </div>
+        <div 
+          onClick={() => setFilterTab('pending')}
+          className={cn("bg-white/5 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-white/10", filterTab === 'pending' ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-white/10')}
+        >
+          <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Pending</h3>
+          <div className="text-4xl font-bold text-amber-400">{pendingCount}</div>
+          <p className="text-xs text-slate-500 mt-1">Not yet evaluated</p>
+        </div>
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
           <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Average ICI</h3>
           <div className={cn("text-4xl font-bold", getIciColor(avgIci))}>{avgIci}</div>
@@ -202,92 +266,137 @@ export default function ScorecardsPage() {
           <div className="text-4xl font-bold text-emerald-400">{exceptionalCount}</div>
           <p className="text-xs text-slate-500 mt-1">Top performers</p>
         </div>
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-          <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Needs Review (≤60)</h3>
-          <div className="text-4xl font-bold text-red-400">{reviewCount}</div>
-          <p className="text-xs text-slate-500 mt-1">Requires attention</p>
-        </div>
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5">
-          <h3 className="text-slate-400 text-xs font-medium mb-1 uppercase tracking-wider">Total Assessed</h3>
-          <div className="text-4xl font-bold text-white">{scorecards.length}</div>
-          <p className="text-xs text-slate-500 mt-1">of {persons.length} personnel</p>
-        </div>
       </div>
 
-      {/* Search bar */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search by officer name or PRO-ID..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-10 py-2.5 bg-slate-800/80 border border-slate-700 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-        />
-        {searchQuery && (
-          <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
-            <X className="w-4 h-4" />
+      {/* Search + Filter Tabs */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs">
+          <button
+            onClick={() => setFilterTab('all')}
+            className={cn("px-3.5 py-1.5 rounded-lg font-semibold transition-all", filterTab === 'all' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white")}
+          >
+            All ({persons.length})
           </button>
-        )}
+          <button
+            onClick={() => setFilterTab('evaluated')}
+            className={cn("px-3.5 py-1.5 rounded-lg font-semibold transition-all", filterTab === 'evaluated' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white")}
+          >
+            Evaluated ({evaluatedCount})
+          </button>
+          <button
+            onClick={() => setFilterTab('pending')}
+            className={cn("px-3.5 py-1.5 rounded-lg font-semibold transition-all", filterTab === 'pending' ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white")}
+          >
+            Pending ({pendingCount})
+          </button>
+        </div>
+
+        <div className="relative max-w-md w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Search by name, PRO-ID, or rank..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+          />
+          {searchQuery && (
+            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Table */}
+        {/* Table — ALL PERSONNEL */}
         <div className="lg:col-span-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden">
           <div className="p-4 border-b border-slate-800 flex items-center justify-between">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Edit3 size={16} className="text-blue-400" />
-              Click any officer row to evaluate / update scores
+              Click any row to evaluate or update ICI scores
             </h3>
+            <span className="text-xs text-slate-400">
+              Showing {filteredRows.length} of {persons.length}
+            </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
             <table className="w-full text-left text-sm">
-              <thead className="bg-slate-800/80">
+              <thead className="bg-slate-800/80 sticky top-0 z-10">
                 <tr className="text-slate-300">
-                  <th className="p-4 font-medium">Officer</th>
-                  <th className="p-4 font-medium text-center">Delivery<br/><span className="text-[10px] text-slate-500">(40)</span></th>
-                  <th className="p-4 font-medium text-center">Quality<br/><span className="text-[10px] text-slate-500">(20)</span></th>
-                  <th className="p-4 font-medium text-center">Time<br/><span className="text-[10px] text-slate-500">(15)</span></th>
-                  <th className="p-4 font-medium text-center">Prob.<br/><span className="text-[10px] text-slate-500">(10)</span></th>
-                  <th className="p-4 font-medium text-center">Collab<br/><span className="text-[10px] text-slate-500">(10)</span></th>
-                  <th className="p-4 font-medium text-center">Doc<br/><span className="text-[10px] text-slate-500">(5)</span></th>
-                  <th className="p-4 font-medium text-center">ICI</th>
-                  <th className="p-4 font-medium">Grade</th>
+                  <th className="p-3 font-medium">Name</th>
+                  <th className="p-3 font-medium">PRO-ID</th>
+                  <th className="p-3 font-medium text-center">Delivery<br/><span className="text-[10px] text-slate-500">(40)</span></th>
+                  <th className="p-3 font-medium text-center">Quality<br/><span className="text-[10px] text-slate-500">(20)</span></th>
+                  <th className="p-3 font-medium text-center">Time<br/><span className="text-[10px] text-slate-500">(15)</span></th>
+                  <th className="p-3 font-medium text-center">Prob.<br/><span className="text-[10px] text-slate-500">(10)</span></th>
+                  <th className="p-3 font-medium text-center">Collab<br/><span className="text-[10px] text-slate-500">(10)</span></th>
+                  <th className="p-3 font-medium text-center">Doc<br/><span className="text-[10px] text-slate-500">(5)</span></th>
+                  <th className="p-3 font-medium text-center">ICI</th>
+                  <th className="p-3 font-medium">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {filteredScorecards.map(s => {
-                  const p = persons.find(per => per.id === s.personId);
+                {filteredRows.map(row => {
+                  const { person, scorecard } = row;
+                  const hasScore = scorecard !== null;
                   return (
                     <tr 
-                      key={s.id} 
-                      onClick={() => openEditScorecard(s)}
-                      className="hover:bg-blue-500/10 transition-colors cursor-pointer group"
-                      title="Click to evaluate / update scores"
+                      key={person.id} 
+                      onClick={() => openScoring(person, scorecard)}
+                      className={cn(
+                        "transition-colors cursor-pointer group",
+                        hasScore ? "hover:bg-blue-500/10" : "hover:bg-amber-500/10 bg-slate-900/30"
+                      )}
+                      title={hasScore ? "Click to update scores" : "Click to evaluate"}
                     >
-                      <td className="p-4">
-                        <div className="font-medium text-white group-hover:text-blue-300 transition-colors">{p?.name || s.personName || 'Unknown'}</div>
-                        <div className="text-xs text-slate-400">{p?.proId || s.personProId}</div>
+                      <td className="p-3">
+                        <div className="font-medium text-white group-hover:text-blue-300 transition-colors text-sm">{person.name}</div>
+                        <div className="text-[11px] text-slate-500">{person.rank}</div>
                       </td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.deliveryScore}</td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.qualityScore}</td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.timelinessScore}</td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.problemSolvingScore}</td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.collaborationScore}</td>
-                      <td className="p-4 text-center text-slate-300 font-mono">{s.documentationScore}</td>
-                      <td className={cn("p-4 text-center font-bold font-mono", getIciColor(s.iciTotal))}>{s.iciTotal}</td>
-                      <td className="p-4">
-                        <span className={cn("px-2 py-1 rounded-lg text-[11px] font-semibold border", getClassBadgeStyle(s.classification))}>
-                          {s.classification}
+                      <td className="p-3">
+                        <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                          {person.proId}
                         </span>
                       </td>
+                      {hasScore ? (
+                        <>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.deliveryScore}</td>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.qualityScore}</td>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.timelinessScore}</td>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.problemSolvingScore}</td>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.collaborationScore}</td>
+                          <td className="p-3 text-center text-slate-300 font-mono text-sm">{scorecard.documentationScore}</td>
+                          <td className={cn("p-3 text-center font-bold font-mono", getIciColor(scorecard.iciTotal))}>{scorecard.iciTotal}</td>
+                          <td className="p-3">
+                            <span className={cn("px-2 py-1 rounded-lg text-[11px] font-semibold border", getClassBadgeStyle(scorecard.classification))}>
+                              {scorecard.classification}
+                            </span>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3 text-center text-slate-600 text-sm">—</td>
+                          <td className="p-3">
+                            <span className="px-2 py-1 rounded-lg text-[11px] font-semibold border bg-slate-700/30 text-slate-400 border-slate-600 flex items-center gap-1 w-fit">
+                              <MinusCircle size={12} /> Not Evaluated
+                            </span>
+                          </td>
+                        </>
+                      )}
                     </tr>
                   );
                 })}
-                {filteredScorecards.length === 0 && (
-                  <tr><td colSpan={9} className="p-8 text-center text-slate-400">
-                    {searchQuery ? 'No scorecards match your search.' : 'No scorecards found for this month. Click "Evaluate Officer" to begin.'}
+                {filteredRows.length === 0 && (
+                  <tr><td colSpan={10} className="p-8 text-center text-slate-400">
+                    {searchQuery ? 'No personnel match your search.' : 'No personnel found.'}
                   </td></tr>
                 )}
               </tbody>
@@ -311,12 +420,27 @@ export default function ScorecardsPage() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+
+          {/* Quick summary */}
+          <div className="mt-6 space-y-2 border-t border-slate-800 pt-4">
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-400">Evaluated</span>
+              <span className="text-emerald-400 font-semibold">{evaluatedCount} / {persons.length}</span>
+            </div>
+            <div className="w-full bg-slate-700/50 rounded-full h-2">
+              <div 
+                className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${persons.length ? (evaluatedCount / persons.length) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-slate-500">{pendingCount} personnel pending evaluation this month</p>
+          </div>
         </div>
 
       </div>
 
       {/* ============================================ */}
-      {/* SCORING MODAL - Evaluate / Update Officer    */}
+      {/* SCORING MODAL                                */}
       {/* ============================================ */}
       <AnimatePresence>
         {isModalOpen && (
@@ -343,7 +467,7 @@ export default function ScorecardsPage() {
                     <p className="text-xs text-slate-400 mt-1">
                       Month: <span className="text-blue-400 font-semibold">{month}</span>
                       {selectedPerson && (
-                        <span> • Officer: <span className="text-white font-semibold">{selectedPerson.name}</span> ({selectedPerson.proId})</span>
+                        <span> • <span className="text-white font-semibold">{selectedPerson.name}</span> ({selectedPerson.proId})</span>
                       )}
                     </p>
                   </div>
@@ -355,17 +479,17 @@ export default function ScorecardsPage() {
 
               <form onSubmit={handleSave} className="p-5 space-y-5">
                 
-                {/* Person Selector (only for new scorecards) */}
-                {!editingScorecard && (
+                {/* Person Selector (only when opened via "New Evaluation" button) */}
+                {!editingPerson && (
                   <div>
-                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Select Officer to Evaluate</label>
+                    <label className="block text-sm font-semibold text-slate-300 mb-1.5">Select Person to Evaluate</label>
                     <select 
                       required 
                       value={formData.personId} 
                       onChange={e => setFormData({...formData, personId: e.target.value})}
                       className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
                     >
-                      <option value="">— Select an officer —</option>
+                      <option value="">— Select a person —</option>
                       {persons.map(p => (
                         <option key={p.id} value={p.id}>{p.proId} — {p.name} ({p.rank})</option>
                       ))}
