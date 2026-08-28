@@ -264,6 +264,14 @@ export async function createOrUpdateScorecard(
 
 // ---- Commitment Operations ----
 
+export function calculateCommitmentStatus(target: number, achievement: number): MonthlyCommitment['status'] {
+  if (target <= 0) return 'green';
+  const ratio = achievement / target;
+  if (ratio >= 0.9) return 'green';
+  if (ratio >= 0.6) return 'amber';
+  return 'red';
+}
+
 export async function createCommitment(
   data: Omit<MonthlyCommitment, 'id' | 'status' | 'createdAt' | 'updatedAt'>
 ): Promise<string> {
@@ -274,16 +282,25 @@ export async function createCommitment(
 export async function updateCommitment(id: string, data: Partial<MonthlyCommitment>): Promise<void> {
   if (data.target !== undefined && data.achievement !== undefined) {
     data.status = calculateCommitmentStatus(data.target, data.achievement);
+  } else if (data.achievement !== undefined) {
+    const existing = await getDocument<MonthlyCommitment>(COLLECTIONS.commitments, id);
+    if (existing) {
+      const target = data.target !== undefined ? data.target : existing.target;
+      data.status = calculateCommitmentStatus(target, data.achievement);
+    }
+  } else if (data.target !== undefined) {
+    const existing = await getDocument<MonthlyCommitment>(COLLECTIONS.commitments, id);
+    if (existing) {
+      const achievement = data.achievement !== undefined ? data.achievement : existing.achievement;
+      data.status = calculateCommitmentStatus(data.target, achievement);
+    }
   }
   await updateDocument(COLLECTIONS.commitments, id, data);
 }
 
-function calculateCommitmentStatus(target: number, achievement: number): MonthlyCommitment['status'] {
-  if (achievement <= 0 && target > 0) return 'pending';
-  const ratio = achievement / target;
-  if (ratio >= 0.9) return 'green';
-  if (ratio >= 0.6) return 'amber';
-  return 'red';
+export async function deleteCommitment(id: string): Promise<void> {
+  await deleteDocument(COLLECTIONS.commitments, id);
+  await logAudit('delete', 'commitment', id, `Removed commitment ${id}`);
 }
 
 // ---- Project Note Operations ----
