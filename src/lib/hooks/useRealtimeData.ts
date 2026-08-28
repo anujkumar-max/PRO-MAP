@@ -25,13 +25,15 @@ import type {
 
 function useRealtimeCollection<T>(
   collectionName: string,
-  constraints: QueryConstraint[] = []
+  constraints: QueryConstraint[] = [],
+  queryKey: string = ''
 ): { data: T[]; loading: boolean; error: string | null } {
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setLoading(true);
     const q = query(collection(db, collectionName), ...constraints);
     const unsubscribe = onSnapshot(
       q,
@@ -53,7 +55,7 @@ function useRealtimeCollection<T>(
 
     return () => unsubscribe();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectionName]);
+  }, [collectionName, queryKey]);
 
   return { data, loading, error };
 }
@@ -79,13 +81,13 @@ export function useAssignments() {
 export function useAssignmentsByProject(projectId: string) {
   return useRealtimeCollection<Assignment>(COLLECTIONS.assignments, [
     where('projectId', '==', projectId),
-  ]);
+  ], `proj:${projectId}`);
 }
 
 export function useAssignmentsByPerson(personId: string) {
   return useRealtimeCollection<Assignment>(COLLECTIONS.assignments, [
     where('personId', '==', personId),
-  ]);
+  ], `person:${personId}`);
 }
 
 // ---- Scorecards Hook ----
@@ -93,13 +95,13 @@ export function useAssignmentsByPerson(personId: string) {
 export function useScorecards(month?: string) {
   const constraints: QueryConstraint[] = [];
   if (month) constraints.push(where('month', '==', month));
-  return useRealtimeCollection<MonthlyScorecard>(COLLECTIONS.scorecards, constraints);
+  return useRealtimeCollection<MonthlyScorecard>(COLLECTIONS.scorecards, constraints, `month:${month || 'all'}`);
 }
 
 export function usePersonScorecards(personId: string) {
   return useRealtimeCollection<MonthlyScorecard>(COLLECTIONS.scorecards, [
     where('personId', '==', personId),
-  ]);
+  ], `person:${personId}`);
 }
 
 // ---- Commitments Hook ----
@@ -107,13 +109,13 @@ export function usePersonScorecards(personId: string) {
 export function useCommitments(month?: string) {
   const constraints: QueryConstraint[] = [];
   if (month) constraints.push(where('month', '==', month));
-  return useRealtimeCollection<MonthlyCommitment>(COLLECTIONS.commitments, constraints);
+  return useRealtimeCollection<MonthlyCommitment>(COLLECTIONS.commitments, constraints, `month:${month || 'all'}`);
 }
 
 export function usePersonCommitments(personId: string) {
   return useRealtimeCollection<MonthlyCommitment>(COLLECTIONS.commitments, [
     where('personId', '==', personId),
-  ]);
+  ], `person:${personId}`);
 }
 
 // ---- Project Health Hook ----
@@ -121,7 +123,7 @@ export function usePersonCommitments(personId: string) {
 export function useProjectHealth(projectId?: string) {
   const constraints: QueryConstraint[] = [];
   if (projectId) constraints.push(where('projectId', '==', projectId));
-  return useRealtimeCollection<ProjectHealth>(COLLECTIONS.projectHealth, constraints);
+  return useRealtimeCollection<ProjectHealth>(COLLECTIONS.projectHealth, constraints, `proj:${projectId || 'all'}`);
 }
 
 // ---- Project Notes Hook ----
@@ -129,7 +131,7 @@ export function useProjectHealth(projectId?: string) {
 export function useProjectNotes(projectId: string) {
   return useRealtimeCollection<ProjectNote>(COLLECTIONS.projectNotes, [
     where('projectId', '==', projectId),
-  ]);
+  ], `proj:${projectId}`);
 }
 
 // ---- Dashboard Stats (Computed from real-time data) ----

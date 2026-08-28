@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCommitments, usePersons, useProjects } from '@/lib/hooks/useRealtimeData';
 import { createCommitment, updateCommitment, deleteCommitment, calculateCommitmentStatus } from '@/lib/firestore';
-import { cn, getCurrentMonth } from '@/lib/utils';
+import { cn, getCurrentMonth, formatMonth } from '@/lib/utils';
 import { 
   Plus, 
   Search, 
@@ -18,7 +18,8 @@ import {
   AlertTriangle, 
   FolderKanban, 
   TrendingUp,
-  Percent
+  Percent,
+  Calendar
 } from 'lucide-react';
 import { MonthlyCommitment } from '@/types';
 
@@ -515,10 +516,42 @@ export default function CommitmentsPage() {
 
               {filteredCommitments.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-12 text-center text-slate-400 space-y-2">
-                    <Target className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                    <p className="text-base font-semibold text-white">No commitments match the selected filter</p>
-                    <p className="text-xs">Try selecting a different status tab or clearing the search bar.</p>
+                  <td colSpan={8} className="p-12 text-center text-slate-400">
+                    {commitments.length === 0 ? (
+                      <div className="max-w-md mx-auto space-y-3">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto">
+                          <Calendar size={24} />
+                        </div>
+                        <h3 className="text-base font-bold text-white">
+                          No Commitments Found for {formatMonth(month)}
+                        </h3>
+                        <p className="text-xs text-slate-400 leading-relaxed">
+                          All present departmental deliverables are currently mapped under <span className="text-blue-400 font-semibold">August 2026</span>. You can add new targets for {formatMonth(month)} or switch back to August 2026.
+                        </p>
+                        <div className="flex items-center justify-center gap-3 pt-2">
+                          <button
+                            onClick={() => setIsModalOpen(true)}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md cursor-pointer"
+                          >
+                            + Add Commitment for {formatMonth(month)}
+                          </button>
+                          {month !== '2026-08' && (
+                            <button
+                              onClick={() => setMonth('2026-08')}
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl transition-all cursor-pointer"
+                            >
+                              📅 View August 2026
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Target className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                        <p className="text-base font-semibold text-white">No commitments match the selected filter</p>
+                        <p className="text-xs">Try selecting a different status tab or clearing the search query.</p>
+                      </div>
+                    )}
                   </td>
                 </tr>
               )}
