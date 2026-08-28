@@ -19,17 +19,25 @@ import {
   FolderKanban, 
   TrendingUp,
   Percent,
-  Calendar
+  Calendar,
+  User,
+  FileText,
+  Save
 } from 'lucide-react';
-import { MonthlyCommitment } from '@/types';
+import { MonthlyCommitment, Person } from '@/types';
 
 export default function CommitmentsPage() {
   const [month, setMonth] = useState(getCurrentMonth());
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [selectedCommitment, setSelectedCommitment] = useState<MonthlyCommitment | null>(null);
+  const [detailAchievement, setDetailAchievement] = useState<number>(0);
+  const [detailTarget, setDetailTarget] = useState<number>(1);
+  const [isSavingDetail, setIsSavingDetail] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'green' | 'amber' | 'red'>('all');
   
-  // Inline editing state
+  // Inline editing state in table
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editAchievement, setEditAchievement] = useState<number>(0);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -61,7 +69,7 @@ export default function CommitmentsPage() {
     });
   }, [commitments]);
 
-  // Counts for filter tabs & summary cards
+  // Counts for filter cards
   const counts = useMemo(() => {
     return {
       all: computedCommitments.length,
@@ -71,16 +79,16 @@ export default function CommitmentsPage() {
     };
   }, [computedCommitments]);
 
-  // Filtered commitments by tab and search
+  // Filtered commitments by active tab card and search query
   const filteredCommitments = useMemo(() => {
     let list = computedCommitments;
 
-    // Filter by tab
+    // Filter by card tab
     if (activeTab !== 'all') {
       list = list.filter((c) => c.liveStatus === activeTab);
     }
 
-    // Filter by search query
+    // Filter by search query (Person Name, PRO-ID, Project, Commitment text)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter((c) =>
@@ -93,6 +101,31 @@ export default function CommitmentsPage() {
 
     return list;
   }, [computedCommitments, activeTab, searchQuery]);
+
+  const handleOpenDetailModal = (c: MonthlyCommitment) => {
+    setSelectedCommitment(c);
+    setDetailAchievement(c.achievement);
+    setDetailTarget(c.target);
+  };
+
+  const handleSaveDetailUpdate = async () => {
+    if (!selectedCommitment) return;
+    setIsSavingDetail(true);
+    try {
+      const target = Math.max(1, detailTarget);
+      const achievement = Math.max(0, detailAchievement);
+      await updateCommitment(selectedCommitment.id, {
+        target,
+        achievement,
+        status: calculateCommitmentStatus(target, achievement)
+      });
+      setSelectedCommitment(null);
+    } catch (err) {
+      console.error('Failed to update commitment details:', err);
+    } finally {
+      setIsSavingDetail(false);
+    }
+  };
 
   const handleSaveNew = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +146,7 @@ export default function CommitmentsPage() {
       achievement: Number(formData.achievement),
     });
 
-    setIsModalOpen(false);
+    setIsAddModalOpen(false);
     setFormData({ personId: '', projectId: '', commitment: '', target: 1, achievement: 0 });
   };
 
@@ -134,7 +167,8 @@ export default function CommitmentsPage() {
     }
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
     if (window.confirm(`Are you sure you want to delete this commitment for ${name}?`)) {
       await deleteCommitment(id);
     }
@@ -144,9 +178,13 @@ export default function CommitmentsPage() {
     return <div className="p-8 text-slate-400 text-center">Loading commitments...</div>;
   }
 
-  // Live preview for modal
+  // Live preview for Add Modal
   const modalLiveStatus = calculateCommitmentStatus(formData.target, formData.achievement);
   const modalRatio = formData.target > 0 ? Math.round((formData.achievement / formData.target) * 100) : 0;
+
+  // Live preview for Detail Modal
+  const detailModalStatus = selectedCommitment ? calculateCommitmentStatus(detailTarget, detailAchievement) : 'green';
+  const detailRatio = detailTarget > 0 ? Math.round((detailAchievement / detailTarget) * 100) : 0;
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 md:p-8 max-w-7xl mx-auto space-y-8 text-white min-h-screen">
@@ -158,7 +196,7 @@ export default function CommitmentsPage() {
             Monthly Commitments
           </h1>
           <p className="text-slate-400 mt-1">
-            Track tangible operational targets &amp; completion status for all personnel across 35 initiatives.
+            Track operational targets &amp; deliverables. Click any staff member row to view full commitment description and targets.
           </p>
         </div>
 
@@ -167,10 +205,10 @@ export default function CommitmentsPage() {
             type="month" 
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 font-medium"
+            className="bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2 text-sm focus:outline-none focus:border-blue-500 font-medium cursor-pointer"
           />
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-5 py-2 rounded-xl transition-all shadow-lg shadow-blue-500/20 text-sm font-semibold cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Add Commitment
@@ -178,142 +216,131 @@ export default function CommitmentsPage() {
         </div>
       </div>
 
-      {/* Summary KPI Cards - Clickable to filter */}
+      {/* Primary Filter Cards (Top Row) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Total Commitments Card */}
         <div 
           onClick={() => setActiveTab('all')}
           className={cn(
-            "bg-white/5 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-white/10 shadow-lg",
-            activeTab === 'all' ? "border-blue-500 ring-1 ring-blue-500/50" : "border-white/10"
+            "bg-white/5 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-white/10 shadow-lg relative group",
+            activeTab === 'all' 
+              ? "border-blue-500 ring-2 ring-blue-500/40 bg-blue-600/10" 
+              : "border-white/10"
           )}
         >
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs uppercase tracking-wider font-bold text-slate-400">Total Commitments</span>
-            <Target size={16} className="text-blue-400" />
+            <span className="text-xs uppercase tracking-wider font-bold text-slate-300">All Commitments</span>
+            <Target size={18} className="text-blue-400" />
           </div>
-          <div className="text-3xl font-extrabold text-white">{counts.all}</div>
-          <p className="text-xs text-slate-400 mt-1">Active deliverables for {month}</p>
+          <div className="text-3xl font-extrabold text-white mt-2">{counts.all}</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800">
+            <p className="text-xs text-slate-400">{formatMonth(month)}</p>
+            {activeTab === 'all' && (
+              <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold border border-blue-500/30">
+                Active Filter
+              </span>
+            )}
+          </div>
         </div>
 
+        {/* On Track (Green) Card */}
         <div 
           onClick={() => setActiveTab('green')}
           className={cn(
-            "bg-emerald-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-emerald-500/15 shadow-lg",
-            activeTab === 'green' ? "border-emerald-500 ring-1 ring-emerald-500/50" : "border-emerald-500/20"
+            "bg-emerald-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-emerald-500/20 shadow-lg relative group",
+            activeTab === 'green' 
+              ? "border-emerald-500 ring-2 ring-emerald-500/50 bg-emerald-600/20" 
+              : "border-emerald-500/20"
           )}
         >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs uppercase tracking-wider font-bold text-emerald-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" /> On Track (≥90%)
             </span>
-            <CheckCircle2 size={16} className="text-emerald-400" />
+            <CheckCircle2 size={18} className="text-emerald-400" />
           </div>
-          <div className="text-3xl font-extrabold text-emerald-400">{counts.green}</div>
-          <p className="text-xs text-emerald-300/70 mt-1">Achieved target deliverables</p>
+          <div className="text-3xl font-extrabold text-emerald-400 mt-2">{counts.green}</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-emerald-900/40">
+            <p className="text-xs text-emerald-300/70">Achieved deliverables</p>
+            {activeTab === 'green' && (
+              <span className="text-[10px] bg-emerald-500/30 text-emerald-200 px-2 py-0.5 rounded-full font-semibold border border-emerald-400/40">
+                Active Filter
+              </span>
+            )}
+          </div>
         </div>
 
+        {/* At Risk (Amber) Card */}
         <div 
           onClick={() => setActiveTab('amber')}
           className={cn(
-            "bg-amber-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-amber-500/15 shadow-lg",
-            activeTab === 'amber' ? "border-amber-500 ring-1 ring-amber-500/50" : "border-amber-500/20"
+            "bg-amber-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-amber-500/20 shadow-lg relative group",
+            activeTab === 'amber' 
+              ? "border-amber-500 ring-2 ring-amber-500/50 bg-amber-600/20" 
+              : "border-amber-500/20"
           )}
         >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs uppercase tracking-wider font-bold text-amber-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-amber-400" /> At Risk (60-89%)
             </span>
-            <AlertTriangle size={16} className="text-amber-400" />
+            <AlertTriangle size={18} className="text-amber-400" />
           </div>
-          <div className="text-3xl font-extrabold text-amber-400">{counts.amber}</div>
-          <p className="text-xs text-amber-300/70 mt-1">In progress with minor delay</p>
+          <div className="text-3xl font-extrabold text-amber-400 mt-2">{counts.amber}</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-amber-900/40">
+            <p className="text-xs text-amber-300/70">In progress / Minor delay</p>
+            {activeTab === 'amber' && (
+              <span className="text-[10px] bg-amber-500/30 text-amber-200 px-2 py-0.5 rounded-full font-semibold border border-amber-400/40">
+                Active Filter
+              </span>
+            )}
+          </div>
         </div>
 
+        {/* Delayed (Red) Card */}
         <div 
           onClick={() => setActiveTab('red')}
           className={cn(
-            "bg-red-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-red-500/15 shadow-lg",
-            activeTab === 'red' ? "border-red-500 ring-1 ring-red-500/50" : "border-red-500/20"
+            "bg-red-500/10 backdrop-blur-xl border rounded-2xl p-5 cursor-pointer transition-all hover:bg-red-500/20 shadow-lg relative group",
+            activeTab === 'red' 
+              ? "border-red-500 ring-2 ring-red-500/50 bg-red-600/20" 
+              : "border-red-500/20"
           )}
         >
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs uppercase tracking-wider font-bold text-red-400 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-red-400" /> Delayed (&lt;60%)
             </span>
-            <Clock size={16} className="text-red-400" />
+            <Clock size={18} className="text-red-400" />
           </div>
-          <div className="text-3xl font-extrabold text-red-400">{counts.red}</div>
-          <p className="text-xs text-red-300/70 mt-1">Requiring leadership escalation</p>
+          <div className="text-3xl font-extrabold text-red-400 mt-2">{counts.red}</div>
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-red-900/40">
+            <p className="text-xs text-red-300/70">Requiring escalation</p>
+            {activeTab === 'red' && (
+              <span className="text-[10px] bg-red-500/30 text-red-200 px-2 py-0.5 rounded-full font-semibold border border-red-400/40">
+                Active Filter
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Filter Tabs & Search Bar */}
-      <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
-        
-        {/* Status Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/80 text-xs">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5",
-              activeTab === 'all' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"
-            )}
-          >
-            All Commitments
-            <span className="px-1.5 py-0.2 bg-white/20 rounded-full text-[10px]">
-              {counts.all}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('green')}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5",
-              activeTab === 'green' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-emerald-400"
-            )}
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            On Track (Green)
-            <span className="px-1.5 py-0.2 bg-emerald-950/80 text-emerald-300 rounded-full text-[10px] border border-emerald-500/30">
-              {counts.green}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('amber')}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5",
-              activeTab === 'amber' ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-amber-400"
-            )}
-          >
-            <span className="w-2 h-2 rounded-full bg-amber-400" />
-            At Risk (Amber)
-            <span className="px-1.5 py-0.2 bg-amber-950/80 text-amber-300 rounded-full text-[10px] border border-amber-500/30">
-              {counts.amber}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('red')}
-            className={cn(
-              "px-3.5 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5",
-              activeTab === 'red' ? "bg-red-600 text-white shadow" : "text-slate-400 hover:text-red-400"
-            )}
-          >
-            <span className="w-2 h-2 rounded-full bg-red-400" />
-            Delayed (Red)
-            <span className="px-1.5 py-0.2 bg-red-950/80 text-red-300 rounded-full text-[10px] border border-red-500/30">
-              {counts.red}
-            </span>
-          </button>
+      {/* Search Bar Row (Cleaned: duplicate pill tabs removed) */}
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+        <div className="flex items-center gap-2 text-xs text-slate-300">
+          <span className="text-slate-400">Current View:</span>
+          <span className="font-bold text-white uppercase bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+            {activeTab === 'all' ? 'All Deliverables' : activeTab === 'green' ? '🟢 On Track' : activeTab === 'amber' ? '🟡 At Risk' : '🔴 Delayed'}
+          </span>
+          <span className="text-slate-400">({filteredCommitments.length} records)</span>
         </div>
 
-        {/* Search Bar */}
         <div className="relative max-w-md w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by person name, PRO-ID, project, task..."
+            placeholder="Search by officer name, PRO-ID, project, targets..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
@@ -333,8 +360,8 @@ export default function CommitmentsPage() {
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl">
         <div className="p-4 border-b border-slate-800/80 flex justify-between items-center bg-slate-900/40">
           <span className="text-xs font-semibold text-slate-300 flex items-center gap-2">
-            <Edit2 size={14} className="text-blue-400" />
-            Hover over any Achievement cell to edit values directly • Press Enter or ✔ to save
+            <User size={14} className="text-blue-400" />
+            Click any personnel row to view full Commitment Description &amp; Targets
           </span>
           <span className="text-xs text-slate-400">
             Showing {filteredCommitments.length} of {computedCommitments.length} deliverables
@@ -345,9 +372,9 @@ export default function CommitmentsPage() {
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-800/80">
               <tr className="text-slate-300">
-                <th className="p-4 font-medium">Person</th>
+                <th className="p-4 font-medium">Personnel</th>
                 <th className="p-4 font-medium">Project</th>
-                <th className="p-4 font-medium w-1/3">Monthly Commitment</th>
+                <th className="p-4 font-medium w-1/3">Commitment Description &amp; Targets</th>
                 <th className="p-4 font-medium text-center">Target</th>
                 <th className="p-4 font-medium text-center">Achievement</th>
                 <th className="p-4 font-medium text-center">Progress</th>
@@ -364,17 +391,19 @@ export default function CommitmentsPage() {
                 return (
                   <tr 
                     key={c.id} 
+                    onClick={() => handleOpenDetailModal(c)}
                     className={cn(
-                      "hover:bg-slate-700/30 transition-colors group",
+                      "hover:bg-blue-500/10 transition-colors cursor-pointer group",
                       isGreen && "hover:bg-emerald-950/20",
                       isAmber && "hover:bg-amber-950/20",
                       isRed && "hover:bg-red-950/20"
                     )}
+                    title="Click to view full description and update details"
                   >
                     {/* Person */}
                     <td className="p-4">
                       <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
-                        {c.personName || 'Officer'}
+                        {c.personName || 'Personnel'}
                       </div>
                       <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[10px] font-semibold">
                         {c.personProId}
@@ -389,9 +418,9 @@ export default function CommitmentsPage() {
                       </div>
                     </td>
 
-                    {/* Commitment Description */}
+                    {/* Commitment Description & Targets */}
                     <td className="p-4 text-slate-300">
-                      <p className="line-clamp-2" title={c.commitment}>{c.commitment}</p>
+                      <p className="line-clamp-2 leading-relaxed" title={c.commitment}>{c.commitment}</p>
                     </td>
 
                     {/* Target */}
@@ -402,7 +431,7 @@ export default function CommitmentsPage() {
                     </td>
 
                     {/* Achievement with Instant Inline Edit */}
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                       {editingId === c.id ? (
                         <div className="flex items-center justify-center space-x-1.5">
                           <input 
@@ -446,7 +475,7 @@ export default function CommitmentsPage() {
                           <button 
                             onClick={() => { setEditingId(c.id); setEditAchievement(c.achievement); }} 
                             className="p-1 text-slate-500 hover:text-blue-400 hover:bg-blue-500/10 rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                            title="Click to edit achievement"
+                            title="Click to quick-edit achievement"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
                           </button>
@@ -501,9 +530,9 @@ export default function CommitmentsPage() {
                     </td>
 
                     {/* Delete Action */}
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => handleDelete(c.id, c.personName || 'this officer')}
+                        onClick={(e) => handleDelete(e, c.id, c.personName || 'this personnel')}
                         className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
                         title="Delete commitment"
                       >
@@ -530,7 +559,7 @@ export default function CommitmentsPage() {
                         </p>
                         <div className="flex items-center justify-center gap-3 pt-2">
                           <button
-                            onClick={() => setIsModalOpen(true)}
+                            onClick={() => setIsAddModalOpen(true)}
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all shadow-md cursor-pointer"
                           >
                             + Add Commitment for {formatMonth(month)}
@@ -549,7 +578,7 @@ export default function CommitmentsPage() {
                       <div className="space-y-2">
                         <Target className="w-8 h-8 text-slate-500 mx-auto mb-2" />
                         <p className="text-base font-semibold text-white">No commitments match the selected filter</p>
-                        <p className="text-xs">Try selecting a different status tab or clearing the search query.</p>
+                        <p className="text-xs">Try clicking a different filter card above or clearing the search query.</p>
                       </div>
                     )}
                   </td>
@@ -560,13 +589,164 @@ export default function CommitmentsPage() {
         </div>
       </div>
 
-      {/* Add Commitment Modal */}
+      {/* ======================================================= */}
+      {/* 1. STAFF COMMITMENT DETAIL & TARGETS MODAL (On Row Click) */}
+      {/* ======================================================= */}
       <AnimatePresence>
-        {isModalOpen && (
+        {selectedCommitment && (
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-            onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedCommitment(null); }}
+          >
+            <motion.div 
+              initial={{ scale: 0.95, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 15 }}
+              className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-xl overflow-hidden shadow-2xl"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/90">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded font-mono text-xs font-bold">
+                      {selectedCommitment.personProId}
+                    </span>
+                    <h2 className="text-xl font-bold text-white">
+                      {selectedCommitment.personName}
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
+                    <FolderKanban size={13} className="text-blue-400" />
+                    Project: <span className="text-slate-200 font-semibold">{selectedCommitment.projectName}</span>
+                    <span>•</span>
+                    <span>Month: <span className="text-blue-400 font-semibold">{formatMonth(selectedCommitment.month)}</span></span>
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setSelectedCommitment(null)} 
+                  className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-5">
+                {/* Full Commitment Description & Targets */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <FileText size={14} className="text-blue-400" />
+                    Commitment Description &amp; Targets
+                  </label>
+                  <div className="p-4 bg-slate-800/80 border border-slate-700/80 rounded-xl text-sm text-slate-100 leading-relaxed whitespace-pre-wrap shadow-inner">
+                    {selectedCommitment.commitment}
+                  </div>
+                </div>
+
+                {/* Target & Achievement Fields */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      Monthly Target
+                    </label>
+                    <input 
+                      type="number"
+                      min="1"
+                      value={detailTarget}
+                      onChange={(e) => setDetailTarget(Math.max(1, Number(e.target.value)))}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                      Current Achievement
+                    </label>
+                    <input 
+                      type="number"
+                      min="0"
+                      value={detailAchievement}
+                      onChange={(e) => setDetailAchievement(Math.max(0, Number(e.target.value)))}
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Status & Progress Summary Card */}
+                <div className="p-4 bg-slate-800/60 rounded-xl border border-slate-700/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-xs text-slate-400 block">Calculated Status ({detailRatio}%)</span>
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border mt-1",
+                        detailModalStatus === 'green' && "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+                        detailModalStatus === 'amber' && "bg-amber-500/15 text-amber-400 border-amber-500/30",
+                        detailModalStatus === 'red' && "bg-red-500/15 text-red-400 border-red-500/30"
+                      )}>
+                        <span className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          detailModalStatus === 'green' && "bg-emerald-400 animate-pulse",
+                          detailModalStatus === 'amber' && "bg-amber-400",
+                          detailModalStatus === 'red' && "bg-red-400"
+                        )} />
+                        {detailModalStatus === 'green' ? '🟢 On Track (≥90%)' : detailModalStatus === 'amber' ? '🟡 At Risk (60-89%)' : '🔴 Delayed (<60%)'}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-xs text-slate-400 block">Deliverables Ratio</span>
+                      <span className="text-xl font-bold font-mono text-white">
+                        {detailAchievement} / {detailTarget}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar */}
+                  <div className="w-full bg-slate-700/60 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className={cn(
+                        "h-2 rounded-full transition-all duration-300",
+                        detailModalStatus === 'green' && "bg-emerald-500",
+                        detailModalStatus === 'amber' && "bg-amber-500",
+                        detailModalStatus === 'red' && "bg-red-500"
+                      )}
+                      style={{ width: `${Math.min(100, detailRatio)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Modal Action Buttons */}
+                <div className="pt-2 flex justify-end gap-3 border-t border-slate-800">
+                  <button 
+                    type="button" 
+                    onClick={() => setSelectedCommitment(null)} 
+                    className="px-4 py-2.5 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-colors text-sm cursor-pointer"
+                  >
+                    Close
+                  </button>
+                  <button 
+                    type="button"
+                    onClick={handleSaveDetailUpdate}
+                    disabled={isSavingDetail}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white px-6 py-2.5 rounded-xl text-sm font-semibold shadow-lg shadow-blue-500/20 transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <Save className="w-4 h-4" />
+                    {isSavingDetail ? 'Saving...' : 'Update & Save'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ======================================================= */}
+      {/* 2. ADD COMMITMENT MODAL                                  */}
+      {/* ======================================================= */}
+      <AnimatePresence>
+        {isAddModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
+            onClick={(e) => { if (e.target === e.currentTarget) setIsAddModalOpen(false); }}
           >
             <motion.div 
               initial={{ scale: 0.95, y: 15 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 15 }}
@@ -578,10 +758,10 @@ export default function CommitmentsPage() {
                     <Target className="w-5 h-5 text-blue-400" />
                     Add Monthly Commitment
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Month: <span className="text-blue-400 font-semibold">{month}</span></p>
+                  <p className="text-xs text-slate-400 mt-1">Month: <span className="text-blue-400 font-semibold">{formatMonth(month)}</span></p>
                 </div>
                 <button 
-                  onClick={() => setIsModalOpen(false)} 
+                  onClick={() => setIsAddModalOpen(false)} 
                   className="text-slate-400 hover:text-white p-1 hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
@@ -622,16 +802,18 @@ export default function CommitmentsPage() {
                   </select>
                 </div>
 
-                {/* Commitment Description */}
+                {/* Commitment Description & Targets */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Commitment Description *</label>
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                    Commitment Description &amp; Targets *
+                  </label>
                   <textarea 
                     required 
                     rows={3}
                     value={formData.commitment} 
                     onChange={(e) => setFormData({ ...formData, commitment: e.target.value })}
                     className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 outline-none text-sm placeholder-slate-500"
-                    placeholder="e.g. Integrate 15 Police Stations with CCTV-360 network"
+                    placeholder="e.g. Total police and population data district wise; Integrate 15 Police Stations with CCTV-360"
                   />
                 </div>
 
@@ -686,7 +868,7 @@ export default function CommitmentsPage() {
                 <div className="pt-3 flex justify-end space-x-3">
                   <button 
                     type="button" 
-                    onClick={() => setIsModalOpen(false)} 
+                    onClick={() => setIsAddModalOpen(false)} 
                     className="px-4 py-2 text-slate-300 hover:text-white rounded-xl hover:bg-slate-800 transition-colors text-sm cursor-pointer"
                   >
                     Cancel
