@@ -42,6 +42,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import Link from 'next/link';
+import FlowDiagramView from '@/components/flow/FlowDiagramView';
 import type { Assignment, ProjectHealth, Project } from '@/types';
 
 function ProjectsContent() {
@@ -903,23 +904,29 @@ function ProjectDetailPanel({
         </div>
       )}
 
-      {/* TAB 2: FLOW DIAGRAM */}
+      {/* TAB 2: FULL INTERACTIVE FLOW DIAGRAM */}
       {activeTab === 'flow' && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-8 text-center space-y-6">
-          <div className="max-w-md mx-auto space-y-3">
-            <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center mx-auto text-blue-400 border border-blue-500/30">
-              <GitBranch className="w-8 h-8" />
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <GitBranch className="w-5 h-5 text-blue-400" />
+                Organizational Hierarchy &amp; Workstreams Flow
+              </h2>
+              <p className="text-xs text-slate-400">
+                Visualizes the complete command chain (IGP &rarr; DSP &rarr; CI &rarr; SI &rarr; Operational Staff) and individual action items for {project.name}.
+              </p>
             </div>
-            <h3 className="text-xl font-bold text-white">Interactive Command Hierarchy Tree</h3>
-            <p className="text-xs text-slate-300">
-              Visualizes the organizational reporting chain (IGP &rarr; DSP &rarr; CI &rarr; SI &rarr; Operational Staff) and decomposed action items for {project.name}.
-            </p>
-            <Link 
+            <Link
               href={`/flow/detail?id=${project.id}`}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 text-sm"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-semibold transition-all shadow-md"
             >
-              <GitBranch className="w-4 h-4" /> Open Full Interactive Flow Diagram
+              <ExternalLink className="w-4 h-4 text-blue-400" /> Open Dedicated Full-Window Page
             </Link>
+          </div>
+
+          <div className="w-full">
+            <FlowDiagramView id={project.id} height="h-[780px] md:h-[840px]" />
           </div>
         </div>
       )}

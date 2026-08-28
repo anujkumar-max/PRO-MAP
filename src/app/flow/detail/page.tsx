@@ -29,17 +29,17 @@ function FlowDetailContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="p-4 md:px-8 pt-6">
+    <div className="min-h-screen flex flex-col space-y-4 pb-6">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => router.push(`/projects?id=${id}`)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all shadow-md cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Project Details
         </button>
       </div>
-      <div className="flex-1">
-        <FlowDiagramView id={id} />
+      <div className="flex-1 w-full">
+        <FlowDiagramView id={id} isFullPage={true} height="h-[calc(100vh-140px)] min-h-[700px]" />
       </div>
     </div>
   );
