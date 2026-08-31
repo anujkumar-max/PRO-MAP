@@ -57,7 +57,12 @@ export async function importExcelData(file: File): Promise<{ projects: number; p
             const rawAsi = r[5] ? cleanStr(r[5]) : '';
 
             if (rawPName) {
-              currentProjectName = rawPName;
+              let pName = rawPName;
+              if (pName === 'NATGRID-GANDIVA' || pName === 'NATGRID-Sudarshan') pName = 'NATGRID-Gandiva & Sudarshan';
+              else if (pName === 'AI4AP – SOCINT' || pName === 'AI4AP – NEWS360AI') pName = 'AI4AP';
+              else if (pName.includes('CCTV-360')) pName = 'CCTV Camera Cloud Based (CCTV-360)';
+
+              currentProjectName = pName;
               currentDsp = rawDsp;
               currentCi = rawCi;
               currentSi = rawSi;
