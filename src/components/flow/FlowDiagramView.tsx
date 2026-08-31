@@ -30,6 +30,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 function FlowContent({ 
   id, 
@@ -84,7 +85,15 @@ function FlowContent({
     let yPos = 40;
 
     // Helper to add hierarchy node
-    const addHierarchyNode = (nodeId: string, title: string, subtitle: string, iconType: string, xPos: number) => {
+    const addHierarchyNode = (
+      nodeId: string, 
+      title: string, 
+      subtitle: string, 
+      roleTag: string, 
+      badgeClass: string,
+      iconType: string, 
+      xPos: number
+    ) => {
       newNodes.push({
         id: nodeId,
         type: 'default',
@@ -94,9 +103,14 @@ function FlowContent({
               <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold flex-shrink-0 shadow">
                 <Shield className="w-5 h-5 text-blue-300" />
               </div>
-              <div className="overflow-hidden">
-                <div className="text-[10px] uppercase tracking-wider font-bold text-blue-300">{subtitle}</div>
-                <div className="text-sm font-extrabold text-white truncate">{title}</div>
+              <div className="overflow-hidden flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] uppercase tracking-wider font-bold text-slate-400">{subtitle}</div>
+                  <span className={cn("px-1.5 py-0.2 rounded text-[9px] font-bold border uppercase tracking-wider", badgeClass)}>
+                    {roleTag}
+                  </span>
+                </div>
+                <div className="text-sm font-extrabold text-white truncate mt-0.5">{title}</div>
               </div>
             </div>
           )
@@ -108,7 +122,7 @@ function FlowContent({
           border: '1px solid rgba(59, 130, 246, 0.4)',
           borderRadius: '16px',
           padding: '4px',
-          minWidth: 260,
+          minWidth: 280,
           boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 0 15px rgba(59, 130, 246, 0.2)',
         },
         sourcePosition: Position.Bottom,
@@ -118,21 +132,25 @@ function FlowContent({
       return nodeId;
     };
 
-    // 1. IGP Node (Top Command)
+    // 1. IGP Node (Top Command - Executive)
     let parentId = addHierarchyNode(
       'igp', 
       project.hierarchy?.igp || 'IGP (Tech Services)', 
-      'Apex Command', 
+      'Apex Command',
+      'Executive',
+      'bg-purple-500/20 text-purple-300 border-purple-500/40',
       'igp', 
       400
     );
 
-    // 2. DSP Node
+    // 2. DSP Node (Supervisory)
     if (project.hierarchy?.dsp) {
       const dspId = addHierarchyNode(
         'dsp', 
         project.hierarchy.dsp, 
-        'Deputy Supdt. of Police (DSP)', 
+        'DSP (Command)', 
+        'Supervisory',
+        'bg-blue-500/20 text-blue-300 border-blue-500/40',
         'dsp', 
         400
       );
@@ -148,12 +166,14 @@ function FlowContent({
       parentId = dspId;
     }
 
-    // 3. CI Node
+    // 3. CI Node (Monitoring)
     if (project.hierarchy?.ci) {
       const ciId = addHierarchyNode(
         'ci', 
         project.hierarchy.ci, 
-        'Circle Inspector (CI)', 
+        'CI / Inspector', 
+        'Monitoring',
+        'bg-amber-500/20 text-amber-300 border-amber-500/40',
         'ci', 
         400
       );
@@ -163,18 +183,20 @@ function FlowContent({
           source: parentId, 
           target: ciId, 
           animated: true, 
-          style: { stroke: '#38BDF8', strokeWidth: 2 } 
+          style: { stroke: '#F59E0B', strokeWidth: 2 } 
         });
       }
       parentId = ciId;
     }
 
-    // 4. SI Node
+    // 4. SI Node (Monitoring)
     if (project.hierarchy?.si) {
       const siId = addHierarchyNode(
         'si', 
         project.hierarchy.si, 
         'Sub-Inspector (SI)', 
+        'Monitoring',
+        'bg-amber-500/20 text-amber-300 border-amber-500/40',
         'si', 
         400
       );
@@ -184,7 +206,7 @@ function FlowContent({
           source: parentId, 
           target: siId, 
           animated: true, 
-          style: { stroke: '#60A5FA', strokeWidth: 2 } 
+          style: { stroke: '#F59E0B', strokeWidth: 2 } 
         });
       }
       parentId = siId;
@@ -211,7 +233,9 @@ function FlowContent({
               <div className="flex justify-between items-start border-b border-blue-500/30 pb-2.5">
                 <div>
                   <div className="font-extrabold text-white text-base tracking-tight">{person?.name || 'Officer'}</div>
-                  <div className="text-xs text-blue-300 font-semibold mt-0.5">{person?.rank || 'Staff'} {person?.genNo ? `(${person.genNo})` : ''}</div>
+                  <div className="mt-1">
+                    <RankRoleBadge rank={person?.rank} genNo={person?.genNo} size="xs" />
+                  </div>
                 </div>
                 <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded font-mono text-[11px] font-bold">
                   {person?.proId || 'PRO-000'}

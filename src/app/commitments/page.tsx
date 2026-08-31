@@ -25,6 +25,7 @@ import {
   Save
 } from 'lucide-react';
 import { MonthlyCommitment, Person } from '@/types';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 export default function CommitmentsPage() {
   const [month, setMonth] = useState(getCurrentMonth());
@@ -402,12 +403,22 @@ export default function CommitmentsPage() {
                   >
                     {/* Person */}
                     <td className="p-4">
-                      <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
-                        {c.personName || 'Personnel'}
-                      </div>
-                      <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[10px] font-semibold">
-                        {c.personProId}
-                      </span>
+                      {(() => {
+                        const person = persons.find(p => p.id === c.personId || p.proId === c.personProId);
+                        return (
+                          <div>
+                            <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
+                              {c.personName || 'Personnel'}
+                            </div>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[10px] font-semibold">
+                                {c.personProId}
+                              </span>
+                              <RankRoleBadge rank={person?.rank} genNo={person?.genNo} size="xs" />
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Project */}
@@ -606,13 +617,17 @@ export default function CommitmentsPage() {
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/90">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded font-mono text-xs font-bold">
                       {selectedCommitment.personProId}
                     </span>
                     <h2 className="text-xl font-bold text-white">
                       {selectedCommitment.personName}
                     </h2>
+                    {(() => {
+                      const person = persons.find(p => p.id === selectedCommitment.personId || p.proId === selectedCommitment.personProId);
+                      return <RankRoleBadge rank={person?.rank} genNo={person?.genNo} size="xs" />;
+                    })()}
                   </div>
                   <p className="text-xs text-slate-400 mt-1 flex items-center gap-1.5">
                     <FolderKanban size={13} className="text-blue-400" />

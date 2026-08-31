@@ -44,6 +44,8 @@ import {
 import Link from 'next/link';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import FlowDiagramView from '@/components/flow/FlowDiagramView';
+import { RankRoleBadge, RoleTagOnlyBadge } from '@/components/common/RankRoleBadge';
+import { getRankRole } from '@/lib/utils';
 import type { Assignment, ProjectHealth, Project } from '@/types';
 
 function ProjectsContent() {
@@ -362,11 +364,26 @@ function ProjectsContent() {
 
                 {/* Supervisory Chain */}
                 {(project.hierarchy?.dsp || project.hierarchy?.ci || project.hierarchy?.si) && (
-                  <div className="text-[11px] text-slate-400 mb-4 bg-slate-900/60 p-2 rounded-lg border border-slate-800 truncate">
-                    <span className="text-slate-500">Command: </span>
-                    {project.hierarchy.dsp && <span className="text-blue-300">DSP {project.hierarchy.dsp} </span>}
-                    {project.hierarchy.ci && <span className="text-slate-300">| CI {project.hierarchy.ci} </span>}
-                    {project.hierarchy.si && <span className="text-slate-400">| SI {project.hierarchy.si}</span>}
+                  <div className="text-[11px] text-slate-400 mb-4 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 flex flex-wrap items-center gap-1.5">
+                    <span className="text-slate-500 font-semibold">Command: </span>
+                    {project.hierarchy.dsp && (
+                      <span className="inline-flex items-center gap-1 text-blue-300">
+                        DSP {project.hierarchy.dsp}
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">Supervisory</span>
+                      </span>
+                    )}
+                    {project.hierarchy.ci && (
+                      <span className="inline-flex items-center gap-1 text-amber-300">
+                        CI {project.hierarchy.ci}
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
+                      </span>
+                    )}
+                    {project.hierarchy.si && (
+                      <span className="inline-flex items-center gap-1 text-amber-300">
+                        SI {project.hierarchy.si}
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
+                      </span>
+                    )}
                   </div>
                 )}
 
@@ -693,22 +710,26 @@ function ProjectDetailPanel({
         {/* Command Hierarchy Bar */}
         <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-white/10 text-xs text-slate-300">
           <span className="font-semibold text-slate-400 uppercase tracking-wider">Supervisory Command:</span>
-          <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-blue-300">
+          <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-purple-300 inline-flex items-center gap-1.5">
             🏛️ {project.hierarchy?.igp || 'IGP (Tech Services)'}
+            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Executive</span>
           </span>
           {project.hierarchy?.dsp && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-slate-200">
-              👮 DSP: {project.hierarchy.dsp}
+            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-blue-200 inline-flex items-center gap-1.5">
+              🛡️ DSP: {project.hierarchy.dsp}
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">Supervisory</span>
             </span>
           )}
           {project.hierarchy?.ci && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-slate-200">
-              👮 CI: {project.hierarchy.ci}
+            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-amber-200 inline-flex items-center gap-1.5">
+              👁️ CI: {project.hierarchy.ci}
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
             </span>
           )}
           {project.hierarchy?.si && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-slate-200">
-              👮 SI: {project.hierarchy.si}
+            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-amber-200 inline-flex items-center gap-1.5">
+              👁️ SI: {project.hierarchy.si}
+              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
             </span>
           )}
         </div>
@@ -851,11 +872,12 @@ function ProjectDetailPanel({
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-3 h-3 rounded-full flex-shrink-0 shadow" style={{ backgroundColor: item.color }} />
                           <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className="text-xs font-bold text-white truncate">{item.name}</span>
                               <span className="text-[9px] px-1 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded font-mono">{item.proId}</span>
+                              <RankRoleBadge rank={item.rank} showRankText={true} size="xs" />
                             </div>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[180px]">{item.workstream}</p>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.workstream}</p>
                           </div>
                         </div>
                         <div className="text-right flex-shrink-0 ml-2">
@@ -895,7 +917,7 @@ function ProjectDetailPanel({
                   <tr>
                     <th className="p-3.5">PRO-ID</th>
                     <th className="p-3.5">Officer Name</th>
-                    <th className="p-3.5">Rank &amp; Gen No</th>
+                    <th className="p-3.5">Rank &amp; Role</th>
                     <th className="p-3.5">Attachment</th>
                     <th className="p-3.5 min-w-[200px]">Workstream / Operational Task</th>
                     <th className="p-3.5 text-right">Alloc %</th>
@@ -919,9 +941,8 @@ function ProjectDetailPanel({
                         <td className="p-3.5 font-bold text-white">
                           {person?.name || 'Unknown Officer'}
                         </td>
-                        <td className="p-3.5 text-slate-300">
-                          <span className="font-semibold text-slate-200">{person?.rank || 'Staff'}</span>
-                          {person?.genNo && <span className="text-slate-400 text-[11px]"> ({person.genNo})</span>}
+                        <td className="p-3.5">
+                          <RankRoleBadge rank={person?.rank} genNo={person?.genNo} />
                         </td>
                         <td className="p-3.5 text-slate-400">
                           {person?.deputationType || 'Deputation'}

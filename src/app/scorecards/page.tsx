@@ -8,6 +8,7 @@ import { cn, getCurrentMonth, getIciColor, getIciBg } from '@/lib/utils';
 import { Plus, X, BarChart2, Edit3, Award, Target, Clock, Lightbulb, Users, FileText, Save, Search, CheckCircle, MinusCircle } from 'lucide-react';
 import { MonthlyScorecard, Person } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 const SCORE_FIELDS = [
   { key: 'deliveryScore', label: 'Delivery', desc: 'Tasks completed & output volume', max: 40, icon: Target, color: 'blue' },
@@ -353,7 +354,9 @@ export default function ScorecardsPage() {
                     >
                       <td className="p-3">
                         <div className="font-medium text-white group-hover:text-blue-300 transition-colors text-sm">{person.name}</div>
-                        <div className="text-[11px] text-slate-500">{person.rank}</div>
+                        <div className="mt-0.5">
+                          <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />
+                        </div>
                       </td>
                       <td className="p-3">
                         <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
@@ -464,10 +467,15 @@ export default function ScorecardsPage() {
                       <Award className="w-5 h-5 text-blue-400" />
                       {editingScorecard ? 'Update ICI Score' : 'New ICI Evaluation'}
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Month: <span className="text-blue-400 font-semibold">{month}</span>
+                    <p className="text-xs text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                      <span>Month: <span className="text-blue-400 font-semibold">{month}</span></span>
                       {selectedPerson && (
-                        <span> • <span className="text-white font-semibold">{selectedPerson.name}</span> ({selectedPerson.proId})</span>
+                        <>
+                          <span>•</span>
+                          <span className="text-white font-semibold">{selectedPerson.name}</span>
+                          <span className="text-blue-300 font-mono">({selectedPerson.proId})</span>
+                          <RankRoleBadge rank={selectedPerson.rank} genNo={selectedPerson.genNo} size="xs" />
+                        </>
                       )}
                     </p>
                   </div>

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePersons, useProjects, useAssignments } from '@/lib/hooks/useRealtimeData';
 import { AlertTriangle, Users, Search, X, CheckCircle2, ArrowRight, ShieldCheck, TrendingDown, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 export default function RiskMatrixPage() {
   const { data: persons, loading: loadingPersons } = usePersons();
@@ -284,11 +285,10 @@ export default function RiskMatrixPage() {
                             {person.proId}
                           </span>
                         </div>
-                        <p className="text-xs text-slate-400">
-                          Rank: <span className="text-slate-200 font-medium">{person.rank}</span>
-                          {person.genNo && <span className="text-slate-400"> (Gen: {person.genNo})</span>}
-                          {person.deputationType && <span> • {person.deputationType}</span>}
-                        </p>
+                        <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
+                          <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />
+                          {person.deputationType && <span>• {person.deputationType}</span>}
+                        </div>
                       </div>
 
                       <div className="text-right">
@@ -383,11 +383,10 @@ export default function RiskMatrixPage() {
                               {person.proId}
                             </span>
                           </div>
-                          <p className="text-xs text-slate-400">
-                            Rank: <span className="text-slate-200 font-medium">{person.rank}</span>
-                            {person.genNo && <span className="text-slate-400"> (Gen: {person.genNo})</span>}
-                            {person.deputationType && <span> • {person.deputationType}</span>}
-                          </p>
+                          <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
+                            <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />
+                            {person.deputationType && <span>• {person.deputationType}</span>}
+                          </div>
                         </div>
 
                         <div className="text-right">

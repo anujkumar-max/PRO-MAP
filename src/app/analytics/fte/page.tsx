@@ -6,6 +6,7 @@ import { usePersonFTEs, useProjectFTEs } from '@/lib/hooks/useRealtimeData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Users, AlertTriangle, ChevronDown, Search, X, Filter, ArrowUpRight, CheckCircle2 } from 'lucide-react';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 export default function FTEAnalyticsPage() {
   const { data: personFTEs, loading: personsLoading } = usePersonFTEs();
@@ -277,7 +278,7 @@ export default function FTEAnalyticsPage() {
               <tr className="bg-slate-800/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-700">
                 <th className="p-3.5">PRO-ID</th>
                 <th className="p-3.5">Officer Name</th>
-                <th className="p-3.5">Rank</th>
+                <th className="p-3.5">Rank &amp; Role</th>
                 <th className="p-3.5 text-right">Total Alloc %</th>
                 <th className="p-3.5 text-right">FTE Value</th>
                 <th className="p-3.5 text-center">Status</th>
@@ -320,7 +321,9 @@ export default function FTEAnalyticsPage() {
                           <ArrowUpRight className="w-3 h-3 text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </Link>
                       </td>
-                      <td className="p-3.5 text-slate-300 font-medium">{person.rank}</td>
+                      <td className="p-3.5">
+                        <RankRoleBadge rank={person.rank} />
+                      </td>
                       <td className="p-3.5 text-right font-mono font-bold">
                         <span className={cn(
                           "px-2 py-0.5 rounded",

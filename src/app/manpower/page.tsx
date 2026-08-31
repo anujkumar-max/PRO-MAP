@@ -6,6 +6,7 @@ import { usePersons, useAssignments, useProjects } from '@/lib/hooks/useRealtime
 import { createPerson } from '@/lib/firestore';
 import { cn } from '@/lib/utils';
 import { Search, Plus, Filter, Download } from 'lucide-react';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 export default function ManpowerPage() {
   const { data: persons, loading: personsLoading } = usePersons();
@@ -141,7 +142,7 @@ export default function ManpowerPage() {
               <tr>
                 <th className="p-4 font-medium">PRO-ID</th>
                 <th className="p-4 font-medium">Name</th>
-                <th className="p-4 font-medium">Rank</th>
+                <th className="p-4 font-medium">Rank &amp; Role</th>
                 <th className="p-4 font-medium">Project</th>
                 <th className="p-4 font-medium">Workstream</th>
                 <th className="p-4 font-medium text-right">Alloc %</th>
@@ -169,7 +170,9 @@ export default function ManpowerPage() {
                       {row.personName}
                     </Link>
                   </td>
-                  <td className="p-4 text-slate-300">{row.rank}</td>
+                  <td className="p-4">
+                    <RankRoleBadge rank={row.rank} />
+                  </td>
                   <td className="p-4">
                     <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium">
                       {row.projectName}

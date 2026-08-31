@@ -6,6 +6,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { User, Calendar, MapPin, Edit, Plus, Briefcase, Activity } from 'lucide-react';
 import { usePersons, useAssignmentsByPerson, usePersonScorecards, usePersonCommitments } from '@/lib/hooks/useRealtimeData';
 import { cn, formatDate, getIciColor, getStatusEmoji } from '@/lib/utils';
+import { RankRoleBadge } from '@/components/common/RankRoleBadge';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
@@ -55,8 +56,11 @@ export default function PersonProfileView({ id }: { id: string }) {
               {person.proId}
             </h1>
             <h2 className="text-3xl font-semibold text-white mb-2">{person.name}</h2>
-            <div className="flex items-center space-x-4 text-slate-300">
-              <span className="flex items-center"><User className="w-4 h-4 mr-2" /> {person.rank} | Gen No: {person.genNo}</span>
+            <div className="flex items-center space-x-4 text-slate-300 flex-wrap gap-y-2">
+              <span className="flex items-center">
+                <User className="w-4 h-4 mr-2" />
+                <RankRoleBadge rank={person.rank} genNo={person.genNo} size="sm" />
+              </span>
               <span className="flex items-center"><MapPin className="w-4 h-4 mr-2" /> {person.deputationType || 'N/A'}</span>
               <span className="flex items-center"><Calendar className="w-4 h-4 mr-2" /> Since {formatDate(person.workingSince)}</span>
             </div>
