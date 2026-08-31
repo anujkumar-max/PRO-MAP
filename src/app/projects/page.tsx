@@ -37,11 +37,12 @@ import {
   ShieldCheck, 
   FileText, 
   Layers,
-  User,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  PieChart as PieIcon
 } from 'lucide-react';
 import Link from 'next/link';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import FlowDiagramView from '@/components/flow/FlowDiagramView';
 import type { Assignment, ProjectHealth, Project } from '@/types';
 
@@ -614,6 +615,30 @@ function ProjectDetailPanel({
 
   const totalEffFTE = assignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
 
+  // Compute Personnel Pie Chart Data for this specific project
+  const personnelPieData = React.useMemo(() => {
+    const COLORS = [
+      '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', 
+      '#06B6D4', '#F97316', '#6366F1', '#14B8A6', '#EAB308',
+      '#38BDF8', '#4ADE80', '#FB7185', '#A78BFA', '#2DD4BF',
+      '#F43F5E', '#84CC16', '#D946EF', '#0EA5E9', '#FBBF24'
+    ];
+
+    return assignments.map((a, idx) => {
+      const person = allPersons.find((p) => p.id === a.personId);
+      return {
+        name: person?.name || a.workstreamName || `Officer ${idx + 1}`,
+        proId: person?.proId || 'PRO-000',
+        rank: person?.rank || 'Staff',
+        workstream: a.workstreamName || 'Operational Task',
+        value: a.allocationPercent, // % workload on this project
+        fte: Math.round((a.allocationPercent / 100) * 10) / 10,
+        raci: a.raciType || 'Responsible',
+        color: COLORS[idx % COLORS.length]
+      };
+    });
+  }, [assignments, allPersons]);
+
   return (
     <div className="p-6 md:p-8 text-white min-h-screen space-y-6">
       {/* Top Back Navigation Bar */}
@@ -719,7 +744,8 @@ function ProjectDetailPanel({
 
       {/* TAB 1: TEAM MEMBERS */}
       {activeTab === 'team' && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Header Row with Actions */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
               <h2 className="text-xl font-bold text-white">Project Personnel &amp; Workstreams</h2>
@@ -729,11 +755,138 @@ function ProjectDetailPanel({
             </div>
             <button 
               onClick={() => setShowAddMember(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/20"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-semibold shadow-lg shadow-blue-600/20 cursor-pointer"
             >
               <Plus className="w-4 h-4" /> Assign New Member
             </button>
           </div>
+
+          {/* Personnel Workload & FTE Distribution Pie Chart Card */}
+          {assignments.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 shadow-xl">
+              
+              {/* Left Column: Interactive Donut / Pie Chart */}
+              <div className="flex flex-col items-center justify-center lg:border-r border-slate-800 lg:pr-6">
+                <div className="w-full flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <PieIcon size={16} className="text-blue-400" />
+                    Manpower Workload Share
+                  </h3>
+                  <span className="text-xs text-slate-400 font-mono font-semibold">
+                    {assignments.length} Personnel
+                  </span>
+                </div>
+
+                <div className="w-full h-56 relative flex items-center justify-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={personnelPieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={56}
+                        outerRadius={80}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {personnelPieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} stroke="rgba(15, 23, 42, 0.8)" strokeWidth={2} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload;
+                            return (
+                              <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700 p-3 rounded-xl shadow-2xl text-xs text-white space-y-1 z-50">
+                                <div className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: data.color }} />
+                                  <span className="font-bold text-white text-sm">{data.name}</span>
+                                  <span className="text-[10px] px-1.5 py-0.2 bg-blue-500/20 text-blue-300 rounded font-mono font-semibold">{data.proId}</span>
+                                </div>
+                                <div className="text-slate-300 font-medium">{data.rank} • {data.workstream}</div>
+                                <div className="flex justify-between gap-4 pt-1 border-t border-slate-800 text-slate-400 font-mono">
+                                  <span>Project Allocation:</span>
+                                  <span className="font-bold text-emerald-400">{data.value}% ({data.fte} FTE)</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  
+                  {/* Center Stat Indicator */}
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-extrabold text-white">{totalEffFTE.toFixed(1)}</span>
+                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Total FTE</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400 text-center mt-1">
+                  Hover over slices to inspect individual officer FTE share
+                </p>
+              </div>
+
+              {/* Right 2 Columns: Personnel Breakdown Roster */}
+              <div className="lg:col-span-2 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
+                      <Users size={14} className="text-blue-400" />
+                      Team Allocation &amp; Workstreams Breakdown
+                    </h4>
+                    <span className="text-xs text-emerald-400 font-medium">
+                      Project Capacity: <strong className="font-mono">{totalEffFTE.toFixed(1)} FTE</strong>
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1 no-scrollbar">
+                    {personnelPieData.map((item, i) => (
+                      <div 
+                        key={i} 
+                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-all group"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-3 h-3 rounded-full flex-shrink-0 shadow" style={{ backgroundColor: item.color }} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-white truncate">{item.name}</span>
+                              <span className="text-[9px] px-1 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded font-mono">{item.proId}</span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 truncate max-w-[180px]">{item.workstream}</p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <span className="text-xs font-bold font-mono text-white block">{item.value}%</span>
+                          <span className="text-[9px] text-slate-400">{item.fte} FTE</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
+                  <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Total Headcount</span>
+                    <span className="text-base font-bold text-white">{assignments.length}</span>
+                  </div>
+                  <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Effective Effort</span>
+                    <span className="text-base font-bold text-blue-400">{totalEffFTE.toFixed(1)} FTE</span>
+                  </div>
+                  <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block">Avg Allocation</span>
+                    <span className="text-base font-bold text-emerald-400">
+                      {assignments.length > 0 ? Math.round((totalEffFTE / assignments.length) * 100) : 0}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          )}
           
           <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
