@@ -230,8 +230,12 @@ export interface ProjectFTE {
   projectId: string;
   projectCode?: string;
   projectName: string;
-  headcount: number; // number of persons assigned
-  effectiveFTE: number; // sum of allocation / 100
+  headcount: number; // number of staff assigned
+  staffHeadcount?: number;
+  officerHeadcount?: number;
+  effectiveFTE: number; // staff operational FTE
+  staffFTE?: number;
+  officerFTE?: number;
   status: HealthStatus;
 }
 

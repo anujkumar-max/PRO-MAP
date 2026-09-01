@@ -231,15 +231,29 @@ export function usePersonFTEs(): { data: PersonFTE[]; loading: boolean } {
 export function useProjectFTEs(): { data: ProjectFTE[]; loading: boolean } {
   const { data: projects, loading: l1 } = useProjects();
   const { data: assignments, loading: l2 } = useAssignments();
-  const { data: healthCards, loading: l3 } = useProjectHealth();
+  const { data: persons, loading: l3 } = usePersons();
+  const { data: healthCards, loading: l4 } = useProjectHealth();
 
-  const loading = l1 || l2 || l3;
+  const loading = l1 || l2 || l3 || l4;
 
   const currentMonth = new Date().toISOString().slice(0, 7);
 
+  const officerPersonIds = new Set(
+    persons.filter(p => {
+      const r = (p.rank || '').toUpperCase().trim();
+      return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(r) ||
+             (p as any).isOfficer;
+    }).map(p => p.id)
+  );
+
   const data: ProjectFTE[] = projects.map((project) => {
     const projectAssignments = assignments.filter((a) => a.projectId === project.id);
-    const effectiveFTE = projectAssignments.reduce((sum, a) => sum + a.allocationPercent / 100, 0);
+    const staffAssignments = projectAssignments.filter(a => !(a as any).isOfficerAssignment && !officerPersonIds.has(a.personId));
+    const officerAssignments = projectAssignments.filter(a => (a as any).isOfficerAssignment || officerPersonIds.has(a.personId));
+
+    const staffFTE = staffAssignments.reduce((sum, a) => sum + a.allocationPercent / 100, 0);
+    const officerFTE = officerAssignments.reduce((sum, a) => sum + a.allocationPercent / 100, 0);
+
     const currentHealth = healthCards.find(
       (h) => h.projectId === project.id && h.month === currentMonth
     );
@@ -248,8 +262,12 @@ export function useProjectFTEs(): { data: ProjectFTE[]; loading: boolean } {
       projectId: project.id,
       projectCode: project.code || '',
       projectName: project.name,
-      headcount: projectAssignments.length,
-      effectiveFTE: Math.round(effectiveFTE * 10) / 10,
+      headcount: staffAssignments.length,
+      staffHeadcount: staffAssignments.length,
+      officerHeadcount: officerAssignments.length,
+      effectiveFTE: Math.round(staffFTE * 10) / 10,
+      staffFTE: Math.round(staffFTE * 10) / 10,
+      officerFTE: Math.round(officerFTE * 10) / 10,
       status: currentHealth?.health || 'green',
     };
   });

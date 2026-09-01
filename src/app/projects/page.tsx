@@ -638,7 +638,32 @@ function ProjectDetailPanel({
     alert('Project Health updated successfully!');
   };
 
-  const totalEffFTE = assignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
+  const isOfficerPerson = (person: any, a?: any) => {
+    if (a?.isOfficerAssignment) return true;
+    if (!person) return false;
+    if (person.isOfficer) return true;
+    const r = (person.rank || '').toUpperCase().trim();
+    return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(r);
+  };
+
+  const officerAssignments = React.useMemo(() => {
+    return assignments.filter(a => {
+      const p = allPersons.find(person => person.id === a.personId);
+      return isOfficerPerson(p, a);
+    });
+  }, [assignments, allPersons]);
+
+  const staffAssignments = React.useMemo(() => {
+    return assignments.filter(a => {
+      const p = allPersons.find(person => person.id === a.personId);
+      return !isOfficerPerson(p, a);
+    });
+  }, [assignments, allPersons]);
+
+  const staffEffFTE = staffAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
+  const officerEffFTE = officerAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
+
+  const [pieView, setPieView] = useState<'staff' | 'officers'>('staff');
 
   // Compute Personnel Pie Chart Data for this specific project
   const personnelPieData = React.useMemo(() => {
@@ -649,20 +674,26 @@ function ProjectDetailPanel({
       '#F43F5E', '#84CC16', '#D946EF', '#0EA5E9', '#FBBF24'
     ];
 
-    return assignments.map((a, idx) => {
+    const activeList = pieView === 'staff' && staffAssignments.length > 0 
+      ? staffAssignments 
+      : (officerAssignments.length > 0 ? officerAssignments : staffAssignments);
+
+    return activeList.map((a, idx) => {
       const person = allPersons.find((p) => p.id === a.personId);
       return {
-        name: person?.name || a.workstreamName || `Officer ${idx + 1}`,
+        name: person?.name || a.workstreamName || `Member ${idx + 1}`,
         proId: person?.proId || 'PRO-000',
         rank: person?.rank || 'Staff',
         workstream: a.workstreamName || 'Operational Task',
         value: a.allocationPercent, // % workload on this project
-        fte: Math.round((a.allocationPercent / 100) * 10) / 10,
+        fte: Math.round((a.allocationPercent / 100) * 100) / 100,
         raci: a.raciType || 'Responsible',
         color: COLORS[idx % COLORS.length]
       };
     });
-  }, [assignments, allPersons]);
+  }, [assignments, allPersons, pieView, staffAssignments, officerAssignments]);
+
+  const currentPieTotalFTE = pieView === 'staff' && staffAssignments.length > 0 ? staffEffFTE : officerEffFTE;
 
   return (
     <div className="p-6 md:p-8 text-white min-h-screen space-y-6">
@@ -708,14 +739,18 @@ function ProjectDetailPanel({
             </p>
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-800/80 p-3 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-3 bg-slate-800/80 p-3 rounded-xl border border-slate-700 flex-wrap sm:flex-nowrap">
             <div className="text-center px-3 border-r border-slate-700">
-              <div className="text-xs text-slate-400">Team Size</div>
-              <div className="text-xl font-bold text-white">{assignments.length}</div>
+              <div className="text-xs text-slate-400">Operational Staff</div>
+              <div className="text-xl font-bold text-white">
+                {staffAssignments.length} <span className="text-xs text-emerald-400 font-normal">({staffEffFTE.toFixed(1)} FTE)</span>
+              </div>
             </div>
             <div className="text-center px-3">
-              <div className="text-xs text-slate-400">Effective FTE</div>
-              <div className="text-xl font-bold text-blue-400">{totalEffFTE.toFixed(1)}</div>
+              <div className="text-xs text-slate-400">Command Officers</div>
+              <div className="text-xl font-bold text-blue-400">
+                {officerAssignments.length} <span className="text-xs text-blue-300/70 font-normal">({officerEffFTE.toFixed(2)} FTE)</span>
+              </div>
             </div>
           </div>
         </div>
@@ -751,7 +786,7 @@ function ProjectDetailPanel({
       {/* Tabs Navigation */}
       <div className="flex border-b border-slate-800 space-x-2">
         {[
-          { id: 'team', label: `Team Members (${assignments.length})`, icon: Users },
+          { id: 'team', label: `Team & Command (${staffAssignments.length} Staff + ${officerAssignments.length} Officers)`, icon: Users },
           { id: 'flow', label: 'Flow Diagram', icon: GitBranch },
           { id: 'health', label: '10-Point Health Card', icon: ShieldCheck },
           { id: 'notes', label: `Project Notes (${notes.length})`, icon: FileText },
@@ -782,9 +817,9 @@ function ProjectDetailPanel({
           {/* Header Row with Actions */}
           <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
             <div>
-              <h2 className="text-xl font-bold text-white">Project Personnel &amp; Workstreams</h2>
+              <h2 className="text-xl font-bold text-white">Project Personnel &amp; Command Oversight</h2>
               <p className="text-xs text-slate-400">
-                All officers actively deployed on {project.name} with workstream tasks, allocation %, and RACI roles.
+                All operational staff and supervising officers actively deployed on {project.name}.
               </p>
             </div>
             <button 
@@ -804,22 +839,44 @@ function ProjectDetailPanel({
                 <div className="w-full flex items-center justify-between mb-2">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
                     <PieIcon size={16} className="text-blue-400" />
-                    Manpower Workload Share
+                    Workload Distribution
                   </h3>
                   <span className="text-xs text-slate-400 font-mono font-semibold">
-                    {assignments.length} Personnel
+                    {pieView === 'staff' ? `${staffAssignments.length} Staff` : `${officerAssignments.length} Officers`}
                   </span>
                 </div>
 
-                <div className="w-full h-56 relative flex items-center justify-center">
+                {/* Switcher between Operational Staff and Command Officers */}
+                <div className="flex items-center gap-1 mb-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800 w-full">
+                  <button
+                    onClick={() => setPieView('staff')}
+                    className={cn(
+                      "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all text-center",
+                      pieView === 'staff' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    👥 Staff ({staffAssignments.length})
+                  </button>
+                  <button
+                    onClick={() => setPieView('officers')}
+                    className={cn(
+                      "flex-1 py-1 text-[11px] font-semibold rounded-lg transition-all text-center",
+                      pieView === 'officers' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    )}
+                  >
+                    🛡️ Officers ({officerAssignments.length})
+                  </button>
+                </div>
+
+                <div className="w-full h-52 relative flex items-center justify-center">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
                         data={personnelPieData}
                         cx="50%"
                         cy="50%"
-                        innerRadius={56}
-                        outerRadius={80}
+                        innerRadius={50}
+                        outerRadius={75}
                         paddingAngle={3}
                         dataKey="value"
                       >
@@ -840,7 +897,7 @@ function ProjectDetailPanel({
                                 </div>
                                 <div className="text-slate-300 font-medium">{data.rank} • {data.workstream}</div>
                                 <div className="flex justify-between gap-4 pt-1 border-t border-slate-800 text-slate-400 font-mono">
-                                  <span>Project Allocation:</span>
+                                  <span>Project Share:</span>
                                   <span className="font-bold text-emerald-400">{data.value}% ({data.fte} FTE)</span>
                                 </div>
                               </div>
@@ -854,12 +911,14 @@ function ProjectDetailPanel({
                   
                   {/* Center Stat Indicator */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-2xl font-extrabold text-white">{totalEffFTE.toFixed(1)}</span>
-                    <span className="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Total FTE</span>
+                    <span className="text-xl font-extrabold text-white">{currentPieTotalFTE.toFixed(1)}</span>
+                    <span className="text-[9px] text-slate-400 uppercase tracking-widest font-semibold">
+                      {pieView === 'staff' ? 'Staff FTE' : 'Officer FTE'}
+                    </span>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 text-center mt-1">
-                  Hover over slices to inspect individual officer FTE share
+                <p className="text-[10px] text-slate-400 text-center mt-1">
+                  Hover over slices to inspect individual allocation %
                 </p>
               </div>
 
@@ -869,227 +928,368 @@ function ProjectDetailPanel({
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-xs uppercase tracking-wider font-bold text-slate-300 flex items-center gap-1.5">
                       <Users size={14} className="text-blue-400" />
-                      Team Allocation &amp; Workstreams Breakdown
+                      {pieView === 'staff' ? 'Operational Staff Allocation' : 'Command Oversight Allocation'}
                     </h4>
                     <span className="text-xs text-emerald-400 font-medium">
-                      Project Capacity: <strong className="font-mono">{totalEffFTE.toFixed(1)} FTE</strong>
+                      Capacity: <strong className="font-mono">{currentPieTotalFTE.toFixed(2)} FTE</strong>
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1 no-scrollbar">
-                    {personnelPieData.map((item, i) => (
-                      <div 
-                        key={i} 
-                        className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-all group"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-3 h-3 rounded-full flex-shrink-0 shadow" style={{ backgroundColor: item.color }} />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-bold text-white truncate">{item.name}</span>
-                              <span className="text-[9px] px-1 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded font-mono">{item.proId}</span>
-                              <RankRoleBadge rank={item.rank} showRankText={true} size="xs" />
+                    {personnelPieData.length === 0 ? (
+                      <div className="col-span-2 p-6 text-center text-slate-400 bg-slate-900/40 rounded-xl border border-slate-800 text-xs">
+                        No {pieView === 'staff' ? 'operational staff' : 'command officers'} mapped yet.
+                      </div>
+                    ) : (
+                      personnelPieData.map((item, i) => (
+                        <div 
+                          key={i} 
+                          className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 hover:border-slate-700 transition-all group"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-3 h-3 rounded-full flex-shrink-0 shadow" style={{ backgroundColor: item.color }} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-bold text-white truncate">{item.name}</span>
+                                <span className="text-[9px] px-1 py-0.2 bg-slate-800 text-slate-400 border border-slate-700 rounded font-mono">{item.proId}</span>
+                                <RankRoleBadge rank={item.rank} showRankText={true} size="xs" />
+                              </div>
+                              <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.workstream}</p>
                             </div>
-                            <p className="text-[10px] text-slate-400 truncate max-w-[200px]">{item.workstream}</p>
+                          </div>
+                          <div className="text-right flex-shrink-0 ml-2">
+                            <span className="text-xs font-bold font-mono text-white block">{item.value}%</span>
+                            <span className="text-[9px] text-slate-400">{item.fte} FTE</span>
                           </div>
                         </div>
-                        <div className="text-right flex-shrink-0 ml-2">
-                          <span className="text-xs font-bold font-mono text-white block">{item.value}%</span>
-                          <span className="text-[9px] text-slate-400">{item.fte} FTE</span>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-800/80 text-center">
                   <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Total Headcount</span>
-                    <span className="text-base font-bold text-white">{assignments.length}</span>
+                    <span className="text-[10px] text-slate-400 block">Operational Staff</span>
+                    <span className="text-sm font-bold text-emerald-400">{staffAssignments.length} ({staffEffFTE.toFixed(1)} FTE)</span>
                   </div>
                   <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Effective Effort</span>
-                    <span className="text-base font-bold text-blue-400">{totalEffFTE.toFixed(1)} FTE</span>
+                    <span className="text-[10px] text-slate-400 block">Supervising Officers</span>
+                    <span className="text-sm font-bold text-purple-300">{officerAssignments.length} ({officerEffFTE.toFixed(2)} FTE)</span>
                   </div>
                   <div className="p-2 bg-slate-900/40 rounded-xl border border-slate-800">
-                    <span className="text-[10px] text-slate-400 block">Avg Allocation</span>
-                    <span className="text-base font-bold text-emerald-400">
-                      {assignments.length > 0 ? Math.round((totalEffFTE / assignments.length) * 100) : 0}%
-                    </span>
+                    <span className="text-[10px] text-slate-400 block">Total Combined</span>
+                    <span className="text-sm font-bold text-white">{assignments.length} Personnel</span>
                   </div>
                 </div>
               </div>
 
             </div>
           )}
-          
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs whitespace-nowrap">
-                <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-700">
-                  <tr>
-                    <th className="p-3.5">PRO-ID</th>
-                    <th className="p-3.5">Officer Name</th>
-                    <th className="p-3.5">Rank &amp; Role</th>
-                    <th className="p-3.5">Attachment</th>
-                    <th className="p-3.5 min-w-[200px]">Workstream / Operational Task</th>
-                    <th className="p-3.5 text-right">Alloc %</th>
-                    <th className="p-3.5">Functional Role</th>
-                    <th className="p-3.5">RACI</th>
-                    <th className="p-3.5 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {assignments.map((a) => {
-                    const person = allPersons.find((p) => p.id === a.personId);
-                    const isEditing = editingAssignmentId === a.id;
-                    
-                    return (
-                      <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
-                        <td className="p-3.5">
-                          <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md font-mono font-semibold">
-                            {person?.proId || 'PRO-000'}
-                          </span>
-                        </td>
-                        <td className="p-3.5 font-bold text-white">
-                          {person?.name || 'Unknown Officer'}
-                        </td>
-                        <td className="p-3.5">
-                          <RankRoleBadge rank={person?.rank} genNo={person?.genNo} />
-                        </td>
-                        <td className="p-3.5 text-slate-400">
-                          {person?.deputationType || 'Deputation'}
-                        </td>
-                        <td className="p-3.5">
-                          {isEditing ? (
-                            <div className="space-y-1">
-                              <input 
-                                className="bg-slate-900 border border-slate-700 px-2 py-1 w-full rounded text-white text-xs"
-                                value={editForm.workstreamName ?? a.workstreamName}
-                                onChange={e => setEditForm({...editForm, workstreamName: e.target.value})}
-                              />
-                              <textarea 
-                                className="bg-slate-900 border border-slate-700 px-2 py-1 w-full rounded text-white text-[11px]"
-                                value={editForm.workstreamDescription ?? a.workstreamDescription}
-                                onChange={e => setEditForm({...editForm, workstreamDescription: e.target.value})}
-                              />
-                            </div>
-                          ) : (
-                            <div className="max-w-md">
-                              <div className="font-semibold text-slate-200">{a.workstreamName}</div>
-                              {a.workstreamDescription && (
-                                <div className="text-[11px] text-slate-400 line-clamp-2 whitespace-normal mt-0.5">
-                                  {a.workstreamDescription}
+
+          {/* Section 1: Command & Supervisory Officers Table */}
+          {officerAssignments.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-purple-300 uppercase tracking-wider flex items-center gap-2">
+                  <span>🛡️</span> Command &amp; Supervisory Officers ({officerAssignments.length})
+                </h3>
+                <span className="text-xs text-slate-400 font-mono">
+                  Total Supervisory Capacity: <strong className="text-purple-300">{officerEffFTE.toFixed(2)} FTE</strong>
+                </span>
+              </div>
+
+              <div className="bg-white/5 backdrop-blur-xl border border-purple-500/20 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs whitespace-nowrap">
+                    <thead className="bg-purple-950/40 text-purple-300 uppercase tracking-wider font-semibold border-b border-purple-500/20">
+                      <tr>
+                        <th className="p-3.5">PRO-ID</th>
+                        <th className="p-3.5">Officer Name</th>
+                        <th className="p-3.5">Rank &amp; Role</th>
+                        <th className="p-3.5 min-w-[200px]">Command Oversight &amp; Workstream</th>
+                        <th className="p-3.5 text-right">Supervisory Share %</th>
+                        <th className="p-3.5">Assigned Role</th>
+                        <th className="p-3.5">RACI</th>
+                        <th className="p-3.5 text-center">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800">
+                      {officerAssignments.map((a) => {
+                        const person = allPersons.find((p) => p.id === a.personId);
+                        const isEditing = editingAssignmentId === a.id;
+                        
+                        return (
+                          <tr key={a.id} className="hover:bg-purple-950/20 transition-colors">
+                            <td className="p-3.5">
+                              <span className="px-2.5 py-1 bg-purple-500/15 text-purple-300 border border-purple-500/30 rounded-md font-mono font-semibold">
+                                {person?.proId || 'PRO-000'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 font-bold text-white">
+                              {person?.name || 'Unknown Officer'}
+                            </td>
+                            <td className="p-3.5">
+                              <RankRoleBadge rank={person?.rank} genNo={person?.genNo} />
+                            </td>
+                            <td className="p-3.5">
+                              {isEditing ? (
+                                <input 
+                                  className="bg-slate-900 border border-slate-700 px-2 py-1 w-full rounded text-white text-xs"
+                                  value={editForm.workstreamName ?? a.workstreamName}
+                                  onChange={e => setEditForm({...editForm, workstreamName: e.target.value})}
+                                />
+                              ) : (
+                                <div className="max-w-md">
+                                  <div className="font-semibold text-slate-200">{a.workstreamName}</div>
                                 </div>
                               )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="p-3.5 text-right font-bold text-slate-200">
-                          {isEditing ? (
-                            <input 
-                              type="number"
-                              min="1" max="100"
-                              className="bg-slate-900 border border-slate-700 px-2 py-1 w-16 rounded text-white text-right"
-                              value={editForm.allocationPercent ?? a.allocationPercent}
-                              onChange={e => setEditForm({...editForm, allocationPercent: Number(e.target.value)})}
-                            />
-                          ) : (
-                            <span className={cn(
-                              "px-2 py-0.5 rounded font-mono",
-                              a.allocationPercent > 100 ? "bg-red-500/20 text-red-400" : "bg-emerald-500/10 text-emerald-400"
-                            )}>
-                              {a.allocationPercent}%
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3.5">
-                          {isEditing ? (
-                            <input 
-                              className="bg-slate-900 border border-slate-700 px-2 py-1 w-32 rounded text-white text-xs"
-                              value={editForm.functionalRole ?? a.functionalRole}
-                              onChange={e => setEditForm({...editForm, functionalRole: e.target.value})}
-                            />
-                          ) : (
-                            <span className="text-slate-300">{a.functionalRole}</span>
-                          )}
-                        </td>
-                        <td className="p-3.5">
-                          {isEditing ? (
-                            <select
-                              className="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-white text-xs"
-                              value={editForm.raciType ?? a.raciType}
-                              onChange={e => setEditForm({...editForm, raciType: e.target.value as any})}
-                            >
-                              <option value="Accountable">Accountable</option>
-                              <option value="Responsible">Responsible</option>
-                              <option value="Consulted">Consulted</option>
-                              <option value="Informed">Informed</option>
-                            </select>
-                          ) : (
-                            <span className={cn(
-                              "px-2 py-0.5 rounded text-[11px] font-bold",
-                              a.raciType === 'Accountable' ? "bg-red-500/20 text-red-400 border border-red-500/30" :
-                              a.raciType === 'Responsible' ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
-                              a.raciType === 'Consulted' ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                              "bg-slate-500/20 text-slate-400 border border-slate-500/30"
-                            )}>
-                              {a.raciType || 'Responsible'}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-3.5 text-center">
-                          {isEditing ? (
-                            <div className="flex items-center justify-center gap-1">
-                              <button onClick={handleUpdateAssignment} className="text-emerald-400 hover:bg-emerald-400/20 p-1.5 rounded" title="Save">
-                                <Check className="w-4 h-4"/>
-                              </button>
-                              <button onClick={() => setEditingAssignmentId(null)} className="text-slate-400 hover:bg-slate-700 p-1.5 rounded" title="Cancel">
-                                <X className="w-4 h-4"/>
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center gap-1">
-                              <button 
-                                onClick={() => {
-                                  setEditingAssignmentId(a.id);
-                                  setEditForm(a);
-                                }} 
-                                className="text-blue-400 hover:bg-blue-400/20 p-1.5 rounded transition-colors" 
-                                title="Edit"
-                              >
-                                <Edit2 className="w-3.5 h-3.5"/>
-                              </button>
-                              <button 
-                                onClick={() => {
-                                  if (confirm(`Remove ${person?.name} from ${project.name}?`)) {
-                                    deleteAssignment(a.id);
-                                  }
-                                }} 
-                                className="text-red-400 hover:bg-red-400/20 p-1.5 rounded transition-colors" 
-                                title="Remove"
-                              >
-                                <Trash2 className="w-3.5 h-3.5"/>
-                              </button>
-                            </div>
-                          )}
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-purple-300 font-mono">
+                              {isEditing ? (
+                                <input 
+                                  type="number"
+                                  min="1" max="100"
+                                  className="bg-slate-900 border border-slate-700 px-2 py-1 w-16 rounded text-white text-right"
+                                  value={editForm.allocationPercent ?? a.allocationPercent}
+                                  onChange={e => setEditForm({...editForm, allocationPercent: Number(e.target.value)})}
+                                />
+                              ) : (
+                                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                  {a.allocationPercent}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              <span className="text-slate-300 font-medium">{a.functionalRole || 'Supervisory Lead'}</span>
+                            </td>
+                            <td className="p-3.5">
+                              <span className="px-2 py-0.5 rounded font-bold text-[10px] bg-red-500/20 text-red-300 border border-red-500/30">
+                                {a.raciType || 'Accountable'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={handleUpdateAssignment} className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded">
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => setEditingAssignmentId(null)} className="p-1 hover:bg-slate-700 text-slate-400 rounded">
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingAssignmentId(a.id);
+                                      setEditForm(a);
+                                    }}
+                                    className="p-1 hover:bg-slate-700 text-slate-400 hover:text-white rounded"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (confirm('Remove this officer assignment?')) {
+                                        await deleteAssignment(a.id);
+                                      }
+                                    }}
+                                    className="p-1 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Section 2: Operational Staff Workstreams Table */}
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                <span>👥</span> Operational Staff Workstreams ({staffAssignments.length})
+              </h3>
+              <span className="text-xs text-slate-400 font-mono">
+                Total Operational Capacity: <strong className="text-emerald-400">{staffEffFTE.toFixed(1)} Staff FTE</strong>
+              </span>
+            </div>
+
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs whitespace-nowrap">
+                  <thead className="bg-slate-800/80 text-slate-400 uppercase tracking-wider font-semibold border-b border-slate-700">
+                    <tr>
+                      <th className="p-3.5">PRO-ID</th>
+                      <th className="p-3.5">Staff Name</th>
+                      <th className="p-3.5">Rank &amp; Role</th>
+                      <th className="p-3.5">Attachment</th>
+                      <th className="p-3.5 min-w-[200px]">Workstream / Operational Task</th>
+                      <th className="p-3.5 text-right">Alloc %</th>
+                      <th className="p-3.5">Functional Role</th>
+                      <th className="p-3.5">RACI</th>
+                      <th className="p-3.5 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {staffAssignments.length === 0 ? (
+                      <tr>
+                        <td colSpan={9} className="p-8 text-center text-slate-400">
+                          <p className="text-sm font-semibold text-slate-300">No operational staff assigned yet to {project.name}</p>
+                          <p className="text-xs text-slate-500 mt-1">Staff will be mapped to this project using the &lsquo;+ Assign New Member&rsquo; button.</p>
                         </td>
                       </tr>
-                    );
-                  })}
-                  {assignments.length === 0 && (
-                    <tr>
-                      <td colSpan={9} className="p-8 text-center text-slate-400">
-                        No team members currently assigned to this project. Click &ldquo;Assign New Member&rdquo; above.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
+                    ) : (
+                      staffAssignments.map((a) => {
+                        const person = allPersons.find((p) => p.id === a.personId);
+                        const isEditing = editingAssignmentId === a.id;
+                        
+                        return (
+                          <tr key={a.id} className="hover:bg-slate-800/40 transition-colors">
+                            <td className="p-3.5">
+                              <span className="px-2.5 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-md font-mono font-semibold">
+                                {person?.proId || 'PRO-000'}
+                              </span>
+                            </td>
+                            <td className="p-3.5 font-bold text-white">
+                              {person?.name || 'Unknown Staff'}
+                            </td>
+                            <td className="p-3.5">
+                              <RankRoleBadge rank={person?.rank} genNo={person?.genNo} />
+                            </td>
+                            <td className="p-3.5 text-slate-400">
+                              {person?.deputationType || 'Deputation'}
+                            </td>
+                            <td className="p-3.5">
+                              {isEditing ? (
+                                <div className="space-y-1">
+                                  <input 
+                                    className="bg-slate-900 border border-slate-700 px-2 py-1 w-full rounded text-white text-xs"
+                                    value={editForm.workstreamName ?? a.workstreamName}
+                                    onChange={e => setEditForm({...editForm, workstreamName: e.target.value})}
+                                  />
+                                  <textarea 
+                                    className="bg-slate-900 border border-slate-700 px-2 py-1 w-full rounded text-white text-[11px]"
+                                    value={editForm.workstreamDescription ?? a.workstreamDescription}
+                                    onChange={e => setEditForm({...editForm, workstreamDescription: e.target.value})}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="max-w-md">
+                                  <div className="font-semibold text-slate-200">{a.workstreamName}</div>
+                                  {a.workstreamDescription && (
+                                    <div className="text-[11px] text-slate-400 line-clamp-2 whitespace-normal mt-0.5">
+                                      {a.workstreamDescription}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3.5 text-right font-bold text-slate-200">
+                              {isEditing ? (
+                                <input 
+                                  type="number"
+                                  min="1" max="100"
+                                  className="bg-slate-900 border border-slate-700 px-2 py-1 w-16 rounded text-white text-right"
+                                  value={editForm.allocationPercent ?? a.allocationPercent}
+                                  onChange={e => setEditForm({...editForm, allocationPercent: Number(e.target.value)})}
+                                />
+                              ) : (
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded font-mono",
+                                  a.allocationPercent > 100 ? "bg-red-500/20 text-red-400" : "bg-emerald-500/10 text-emerald-400"
+                                )}>
+                                  {a.allocationPercent}%
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              {isEditing ? (
+                                <input 
+                                  className="bg-slate-900 border border-slate-700 px-2 py-1 w-32 rounded text-white text-xs"
+                                  value={editForm.functionalRole ?? a.functionalRole}
+                                  onChange={e => setEditForm({...editForm, functionalRole: e.target.value})}
+                                />
+                              ) : (
+                                <span className="text-slate-300">{a.functionalRole}</span>
+                              )}
+                            </td>
+                            <td className="p-3.5">
+                              {isEditing ? (
+                                <select
+                                  className="bg-slate-900 border border-slate-700 px-2 py-1 rounded text-white text-xs"
+                                  value={editForm.raciType ?? a.raciType}
+                                  onChange={e => setEditForm({...editForm, raciType: e.target.value as any})}
+                                >
+                                  <option value="Accountable">Accountable</option>
+                                  <option value="Responsible">Responsible</option>
+                                  <option value="Consulted">Consulted</option>
+                                  <option value="Informed">Informed</option>
+                                </select>
+                              ) : (
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded text-[11px] font-bold",
+                                  a.raciType === 'Accountable' ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                                  a.raciType === 'Responsible' ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
+                                  a.raciType === 'Consulted' ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+                                  "bg-slate-500/20 text-slate-400 border border-slate-500/30"
+                                )}>
+                                  {a.raciType || 'Responsible'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3.5 text-center">
+                              {isEditing ? (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button onClick={handleUpdateAssignment} className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded">
+                                    <Check className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => setEditingAssignmentId(null)} className="p-1 hover:bg-slate-700 text-slate-400 rounded">
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <button 
+                                    onClick={() => {
+                                      setEditingAssignmentId(a.id);
+                                      setEditForm(a);
+                                    }}
+                                    className="p-1 hover:bg-slate-700 text-slate-400 hover:text-white rounded"
+                                  >
+                                    <Edit2 className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button 
+                                    onClick={async () => {
+                                      if (confirm(`Remove ${person?.name} from ${project.name}?`)) {
+                                        await deleteAssignment(a.id);
+                                      }
+                                    }}
+                                    className="p-1 hover:bg-red-500/20 text-slate-400 hover:text-red-400 rounded"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
               </table>
             </div>
           </div>
         </div>
-      )}
+      </div>
+    )}
 
       {/* TAB 2: FULL INTERACTIVE FLOW DIAGRAM */}
       {activeTab === 'flow' && (
