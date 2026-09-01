@@ -198,7 +198,7 @@ export function usePersonFTEs(): { data: PersonFTE[]; loading: boolean } {
 
   const loading = l1 || l2 || l3;
 
-  const projectMap = new Map(projects.map((p) => [p.id, p.name]));
+  const projectMap = new Map(projects.map((p) => [p.id, { name: p.name, code: p.code || '' }]));
 
   const data: PersonFTE[] = persons.map((person) => {
     const personAssignments = assignments.filter((a) => a.personId === person.id);
@@ -210,12 +210,16 @@ export function usePersonFTEs(): { data: PersonFTE[]; loading: boolean } {
       proId: person.proId,
       rank: person.rank,
       totalAllocation,
-      assignments: personAssignments.map((a) => ({
-        projectId: a.projectId,
-        projectName: projectMap.get(a.projectId) || 'Unknown',
-        allocationPercent: a.allocationPercent,
-        fte: a.allocationPercent / 100,
-      })),
+      assignments: personAssignments.map((a) => {
+        const pObj = projectMap.get(a.projectId);
+        return {
+          projectId: a.projectId,
+          projectCode: pObj?.code || '',
+          projectName: pObj?.name || 'Unknown',
+          allocationPercent: a.allocationPercent,
+          fte: a.allocationPercent / 100,
+        };
+      }),
       isOverallocated: totalAllocation > 100,
       isUnderallocated: totalAllocation < 50,
     };
@@ -242,6 +246,7 @@ export function useProjectFTEs(): { data: ProjectFTE[]; loading: boolean } {
 
     return {
       projectId: project.id,
+      projectCode: project.code || '',
       projectName: project.name,
       headcount: projectAssignments.length,
       effectiveFTE: Math.round(effectiveFTE * 10) / 10,

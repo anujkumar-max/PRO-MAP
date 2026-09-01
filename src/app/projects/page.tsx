@@ -101,7 +101,7 @@ function ProjectsContent() {
         stats,
         healthStatus,
       };
-    });
+    }).sort((a, b) => (a.code || a.name).localeCompare(b.code || b.name));
   }, [projects, projectFTEs]);
 
   // Counts for tabs
@@ -124,6 +124,7 @@ function ProjectsContent() {
       const q = search.toLowerCase().trim();
       list = list.filter(
         (p) =>
+          (p.code || '').toLowerCase().includes(q) ||
           p.name.toLowerCase().includes(q) ||
           (p.description || '').toLowerCase().includes(q) ||
           (p.hierarchy?.dsp || '').toLowerCase().includes(q) ||
@@ -314,9 +315,16 @@ function ProjectsContent() {
                 )}
               >
                 <div className="flex justify-between items-start mb-3 gap-2">
-                  <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-2">
-                    {project.name}
-                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap min-w-0">
+                    {project.code && (
+                      <span className="px-2 py-0.5 bg-blue-500/15 text-blue-400 border border-blue-500/30 rounded-md font-mono text-xs font-bold flex-shrink-0">
+                        {project.code}
+                      </span>
+                    )}
+                    <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors line-clamp-1">
+                      {project.name}
+                    </h3>
+                  </div>
                   
                   {/* Health Badge */}
                   <div
@@ -681,7 +689,12 @@ function ProjectDetailPanel({
       <div className="bg-gradient-to-r from-blue-900/40 via-slate-900/60 to-slate-900/80 border border-white/10 rounded-2xl p-6 md:p-8 backdrop-blur-xl">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
           <div>
-            <div className="flex items-center gap-3 mb-2">
+            <div className="flex items-center gap-3 mb-2 flex-wrap">
+              {project.code && (
+                <span className="px-3 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-xl font-mono text-sm font-extrabold shadow-sm">
+                  {project.code}
+                </span>
+              )}
               <h1 className="text-3xl font-extrabold text-white tracking-tight">{project.name}</h1>
               <span className={cn(
                 'px-3 py-1 text-xs font-bold rounded-full border',

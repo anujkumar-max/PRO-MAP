@@ -23,6 +23,7 @@ export interface Person {
 // ---- Project ----
 export interface Project {
   id: string;
+  code?: string; // PRJ-001, PRJ-002, etc.
   name: string;
   description: string;
   status: 'Active' | 'Inactive' | 'Completed';
@@ -216,6 +217,7 @@ export interface PersonFTE {
   totalAllocation: number; // should be 100
   assignments: {
     projectId: string;
+    projectCode?: string;
     projectName: string;
     allocationPercent: number;
     fte: number; // allocationPercent / 100
@@ -226,6 +228,7 @@ export interface PersonFTE {
 
 export interface ProjectFTE {
   projectId: string;
+  projectCode?: string;
   projectName: string;
   headcount: number; // number of persons assigned
   effectiveFTE: number; // sum of allocation / 100

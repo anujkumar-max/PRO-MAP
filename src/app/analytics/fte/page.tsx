@@ -384,10 +384,15 @@ export default function FTEAnalyticsPage() {
                                   >
                                     <Link 
                                       href={`/projects?id=${assignment.projectId}`}
-                                      className="text-xs font-semibold text-white hover:text-blue-400 transition-colors line-clamp-1 flex-1"
+                                      className="text-xs font-semibold text-white hover:text-blue-400 transition-colors line-clamp-1 flex-1 flex items-center gap-1.5 flex-wrap"
                                       title={assignment.projectName}
                                     >
-                                      📁 {assignment.projectName}
+                                      {assignment.projectCode && (
+                                        <span className="px-1.5 py-0.2 bg-blue-500/15 text-blue-300 border border-blue-500/30 rounded font-mono text-[10px] font-bold">
+                                          {assignment.projectCode}
+                                        </span>
+                                      )}
+                                      <span className="truncate">📁 {assignment.projectName}</span>
                                     </Link>
                                     <span className="text-xs font-mono font-bold text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20 whitespace-nowrap">
                                       {assignment.allocationPercent}% ({assignment.fte.toFixed(2)} FTE)

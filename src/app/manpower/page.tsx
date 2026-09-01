@@ -40,6 +40,7 @@ export default function ManpowerPage() {
       proId: person?.proId || '-',
       personName: person?.name || '-',
       rank: person?.rank || '-',
+      projectCode: project?.code || '',
       projectName: project?.name || '-',
       workstream: a.workstreamName,
       allocation: a.allocationPercent,
@@ -51,6 +52,7 @@ export default function ManpowerPage() {
   }).filter(row => 
     row.personName.toLowerCase().includes(search.toLowerCase()) || 
     row.projectName.toLowerCase().includes(search.toLowerCase()) ||
+    row.projectCode.toLowerCase().includes(search.toLowerCase()) ||
     row.proId.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -174,8 +176,13 @@ export default function ManpowerPage() {
                     <RankRoleBadge rank={row.rank} />
                   </td>
                   <td className="p-4">
-                    <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium">
-                      {row.projectName}
+                    <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium flex items-center gap-1.5 flex-wrap">
+                      {row.projectCode && (
+                        <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                          {row.projectCode}
+                        </span>
+                      )}
+                      <span>{row.projectName}</span>
                     </Link>
                   </td>
                   <td className="p-4 text-slate-300">{row.workstream}</td>

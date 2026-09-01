@@ -60,15 +60,17 @@ export default function CommitmentsPage() {
   // Compute status for all commitments dynamically
   const computedCommitments = useMemo(() => {
     return commitments.map((c) => {
+      const project = projects.find(p => p.id === c.projectId || p.name === c.projectName);
       const liveStatus = calculateCommitmentStatus(c.target, c.achievement);
       const ratio = c.target > 0 ? Math.round((c.achievement / c.target) * 100) : 100;
       return {
         ...c,
+        projectCode: project?.code || '',
         liveStatus,
         ratio,
       };
     });
-  }, [commitments]);
+  }, [commitments, projects]);
 
   // Counts for filter cards
   const counts = useMemo(() => {
@@ -95,6 +97,7 @@ export default function CommitmentsPage() {
       list = list.filter((c) =>
         (c.personName || '').toLowerCase().includes(q) ||
         (c.personProId || '').toLowerCase().includes(q) ||
+        (c.projectCode || '').toLowerCase().includes(q) ||
         (c.projectName || '').toLowerCase().includes(q) ||
         (c.commitment || '').toLowerCase().includes(q)
       );
@@ -423,8 +426,13 @@ export default function CommitmentsPage() {
 
                     {/* Project */}
                     <td className="p-4">
-                      <div className="text-slate-200 font-medium flex items-center gap-1.5">
+                      <div className="text-slate-200 font-medium flex items-center gap-1.5 flex-wrap">
                         <FolderKanban size={14} className="text-blue-400 flex-shrink-0" />
+                        {c.projectCode && (
+                          <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[10px] font-semibold">
+                            {c.projectCode}
+                          </span>
+                        )}
                         <span className="truncate max-w-[200px]" title={c.projectName}>{c.projectName || '—'}</span>
                       </div>
                     </td>
@@ -812,7 +820,7 @@ export default function CommitmentsPage() {
                   >
                     <option value="">— Select project —</option>
                     {projects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
+                      <option key={p.id} value={p.id}>{p.code ? `${p.code} — ` : ''}{p.name}</option>
                     ))}
                   </select>
                 </div>

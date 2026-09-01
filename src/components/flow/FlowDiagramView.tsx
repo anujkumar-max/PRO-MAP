@@ -349,8 +349,13 @@ function FlowContent({
             <GitBranch size={18} />
           </div>
           <div>
-            <h2 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              {project.name}
+            <h2 className="text-base md:text-lg font-bold text-white tracking-tight flex items-center gap-2 flex-wrap">
+              {project.code && (
+                <span className="text-xs px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/40 rounded-lg font-mono font-bold">
+                  {project.code}
+                </span>
+              )}
+              <span>{project.name}</span>
               <span className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full font-medium">
                 {assignments.length} Officers
               </span>

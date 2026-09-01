@@ -48,14 +48,18 @@ export default function RiskMatrixPage() {
         deputationType: person.deputationType,
         totalAllocation: totalAlloc,
         projectCount: pAssigns.length,
-        assignments: pAssigns.map(a => ({
-          projectId: a.projectId,
-          projectName: projectMap.get(a.projectId)?.name || 'Project',
-          workstreamName: a.workstreamName,
-          allocationPercent: a.allocationPercent,
-          functionalRole: a.functionalRole,
-          raciType: a.raciType
-        }))
+        assignments: pAssigns.map(a => {
+          const pObj = projectMap.get(a.projectId);
+          return {
+            projectId: a.projectId,
+            projectCode: pObj?.code || '',
+            projectName: pObj?.name || 'Project',
+            workstreamName: a.workstreamName,
+            allocationPercent: a.allocationPercent,
+            functionalRole: a.functionalRole,
+            raciType: a.raciType
+          };
+        })
       };
 
       if (totalAlloc > 100) {
@@ -311,10 +315,15 @@ export default function RiskMatrixPage() {
                           <div key={idx} className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                             <Link 
                               href={`/projects?id=${a.projectId}`}
-                              className="font-medium text-slate-200 hover:text-blue-400 transition-colors truncate max-w-[180px]"
+                              className="font-medium text-slate-200 hover:text-blue-400 transition-colors flex items-center gap-1.5 truncate max-w-[200px]"
                               title={a.projectName}
                             >
-                              📁 {a.projectName}
+                              {a.projectCode && (
+                                <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[10px] font-bold">
+                                  {a.projectCode}
+                                </span>
+                              )}
+                              <span className="truncate">📁 {a.projectName}</span>
                             </Link>
                             <span className="font-mono font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
                               {a.allocationPercent}%
@@ -409,10 +418,15 @@ export default function RiskMatrixPage() {
                             <div key={idx} className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
                               <Link 
                                 href={`/projects?id=${a.projectId}`}
-                                className="font-medium text-slate-200 hover:text-blue-400 transition-colors truncate max-w-[180px]"
+                                className="font-medium text-slate-200 hover:text-blue-400 transition-colors flex items-center gap-1.5 truncate max-w-[200px]"
                                 title={a.projectName}
                               >
-                                📁 {a.projectName}
+                                {a.projectCode && (
+                                  <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[10px] font-bold">
+                                    {a.projectCode}
+                                  </span>
+                                )}
+                                <span className="truncate">📁 {a.projectName}</span>
                               </Link>
                               <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                                 {a.allocationPercent}%
