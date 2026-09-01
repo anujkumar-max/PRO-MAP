@@ -755,31 +755,16 @@ function ProjectDetailPanel({
           </div>
         </div>
 
-        {/* Command Hierarchy Bar */}
+        {/* Executive Command Banner */}
         <div className="flex flex-wrap items-center gap-2 pt-4 border-t border-white/10 text-xs text-slate-300">
-          <span className="font-semibold text-slate-400 uppercase tracking-wider">Supervisory Command:</span>
-          <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-purple-300 inline-flex items-center gap-1.5">
-            🏛️ {project.hierarchy?.igp || 'IGP (Tech Services)'}
-            <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">Executive</span>
+          <span className="font-semibold text-slate-400 uppercase tracking-wider">Executive Command:</span>
+          <span className="bg-slate-800/90 px-3 py-1.5 rounded-xl border border-purple-500/30 font-medium text-purple-200 inline-flex items-center gap-2 shadow-md">
+            <span className="text-base">🏛️</span>
+            <span className="font-bold text-white tracking-wide">Inspector General of Police (Tech Services)</span>
+            <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
+              Apex Executive
+            </span>
           </span>
-          {project.hierarchy?.dsp && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-blue-200 inline-flex items-center gap-1.5">
-              🛡️ DSP: {project.hierarchy.dsp}
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">Supervisory</span>
-            </span>
-          )}
-          {project.hierarchy?.ci && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-amber-200 inline-flex items-center gap-1.5">
-              👁️ CI: {project.hierarchy.ci}
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
-            </span>
-          )}
-          {project.hierarchy?.si && (
-            <span className="bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700 font-medium text-amber-200 inline-flex items-center gap-1.5">
-              👁️ SI: {project.hierarchy.si}
-              <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Monitoring</span>
-            </span>
-          )}
         </div>
       </div>
 
