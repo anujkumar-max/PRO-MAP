@@ -26,6 +26,8 @@ import {
   Search, 
   Activity, 
   Users, 
+  Shield,
+  ArrowUpDown,
   Clock, 
   ArrowRight, 
   ArrowLeft, 
@@ -59,6 +61,16 @@ function ProjectsContent() {
 
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(initialProjectId);
   const [healthFilter, setHealthFilter] = useState<'all' | 'green' | 'amber' | 'red'>('all');
+  const [sortBy, setSortBy] = useState<
+    | 'id'
+    | 'name'
+    | 'fte-asc'
+    | 'fte-desc'
+    | 'staff-desc'
+    | 'staff-asc'
+    | 'officer-desc'
+    | 'officer-asc'
+  >('id');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -114,7 +126,7 @@ function ProjectsContent() {
     };
   }, [projectListWithHealth]);
 
-  // Filtered by health & search
+  // Filtered by health & search & sorted by user preference
   const filteredProjects = React.useMemo(() => {
     let list = projectListWithHealth;
     if (healthFilter !== 'all') {
@@ -132,8 +144,38 @@ function ProjectsContent() {
           (p.hierarchy?.si || '').toLowerCase().includes(q)
       );
     }
-    return list;
-  }, [projectListWithHealth, healthFilter, search]);
+
+    const sorted = [...list].sort((a, b) => {
+      const aStaffFTE = a.stats?.staffFTE ?? a.stats?.effectiveFTE ?? 0;
+      const bStaffFTE = b.stats?.staffFTE ?? b.stats?.effectiveFTE ?? 0;
+      const aStaffHeadcount = a.stats?.staffHeadcount ?? a.stats?.headcount ?? 0;
+      const bStaffHeadcount = b.stats?.staffHeadcount ?? b.stats?.headcount ?? 0;
+      const aOfficerCount = a.stats?.officerHeadcount ?? 0;
+      const bOfficerCount = b.stats?.officerHeadcount ?? 0;
+
+      switch (sortBy) {
+        case 'fte-asc':
+          return aStaffFTE - bStaffFTE || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'fte-desc':
+          return bStaffFTE - aStaffFTE || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'staff-asc':
+          return aStaffHeadcount - bStaffHeadcount || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'staff-desc':
+          return bStaffHeadcount - aStaffHeadcount || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'officer-desc':
+          return bOfficerCount - aOfficerCount || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'officer-asc':
+          return aOfficerCount - bOfficerCount || (a.code || a.name).localeCompare(b.code || b.name);
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'id':
+        default:
+          return (a.code || a.name).localeCompare(b.code || b.name, undefined, { numeric: true });
+      }
+    });
+
+    return sorted;
+  }, [projectListWithHealth, healthFilter, search, sortBy]);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
@@ -191,8 +233,8 @@ function ProjectsContent() {
         </button>
       </div>
 
-      {/* Health Filter Tabs & Search Bar */}
-      <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+      {/* Health Filter Tabs & Search Bar & Sort Dropdown */}
+      <div className="flex flex-col xl:flex-row justify-between xl:items-center gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
         
         {/* Health Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/80 text-xs">
@@ -260,24 +302,47 @@ function ProjectsContent() {
           </button>
         </div>
 
-        {/* Search Bar */}
-        <div className="relative max-w-md w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search projects, command, officers..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+        {/* Right side: Sort Dropdown + Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+          {/* Sort Dropdown */}
+          <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs shadow-inner">
+            <ArrowUpDown className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+            <span className="text-slate-400 font-semibold whitespace-nowrap">Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer w-full sm:w-auto"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+              <option value="id" className="bg-slate-900 text-white">Project ID (PRJ-001 ➔ PRJ-036)</option>
+              <option value="fte-asc" className="bg-slate-900 text-white">📉 Staff FTE: Low ➔ High (Find 0 FTE)</option>
+              <option value="fte-desc" className="bg-slate-900 text-white">📈 Staff FTE: High ➔ Low (Resource Heavy)</option>
+              <option value="staff-asc" className="bg-slate-900 text-white">👥 Staff Headcount: Low ➔ High</option>
+              <option value="staff-desc" className="bg-slate-900 text-white">👥 Staff Headcount: High ➔ Low</option>
+              <option value="officer-desc" className="bg-slate-900 text-white">🛡️ Officer Oversight: High ➔ Low</option>
+              <option value="officer-asc" className="bg-slate-900 text-white">🛡️ Officer Oversight: Low ➔ High</option>
+              <option value="name" className="bg-slate-900 text-white">🔤 Project Name: A ➔ Z</option>
+            </select>
+          </div>
+
+          {/* Search Bar */}
+          <div className="relative max-w-xs w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search projects, officers..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -296,6 +361,10 @@ function ProjectsContent() {
           const isGreen = project.healthStatus === 'green';
           const isAmber = project.healthStatus === 'amber';
           const isRed = project.healthStatus === 'red';
+          const staffFteVal = stats?.effectiveFTE ?? stats?.staffFTE ?? 0;
+          const staffCountVal = stats?.staffHeadcount ?? stats?.headcount ?? 0;
+          const officerCountVal = stats?.officerHeadcount ?? 0;
+          const officerFteVal = stats?.officerFTE ?? 0;
           
           return (
             <motion.div
@@ -347,28 +416,47 @@ function ProjectsContent() {
                   </div>
                 </div>
                 
-                <p className="text-slate-400 text-xs mb-5 line-clamp-2">
+                <p className="text-slate-400 text-xs mb-4 line-clamp-2">
                   {project.description || 'Tech Services Project'}
                 </p>
 
-                <div className="grid grid-cols-2 gap-3 mb-4">
-                  <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
-                    <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                      <Users className="w-3.5 h-3.5 text-blue-400" /> Team Size
+                {/* Dual Staff & Officer Capacity Badges */}
+                <div className="grid grid-cols-2 gap-2.5 mb-3">
+                  <div className="bg-slate-800/70 rounded-xl p-3 border border-slate-700/60">
+                    <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                      <span className="flex items-center gap-1 text-emerald-400 font-semibold text-[11px]">
+                        <Users className="w-3.5 h-3.5" /> Staff
+                      </span>
+                      <span className="text-[11px] font-mono text-emerald-300 font-bold">
+                        {staffFteVal.toFixed(1)} FTE
+                      </span>
                     </div>
-                    <div className="text-lg font-bold text-white">
-                      {stats?.headcount || 0} <span className="text-xs text-slate-400 font-normal">personnel</span>
+                    <div className="text-base font-extrabold text-white">
+                      {staffCountVal} <span className="text-[11px] text-slate-400 font-normal">operational</span>
                     </div>
                   </div>
-                  <div className="bg-slate-800/60 rounded-xl p-3 border border-slate-700/50">
-                    <div className="flex items-center gap-1.5 text-slate-400 text-xs mb-1">
-                      <Clock className="w-3.5 h-3.5 text-indigo-400" /> Effective FTE
+
+                  <div className="bg-slate-800/70 rounded-xl p-3 border border-slate-700/60">
+                    <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                      <span className="flex items-center gap-1 text-purple-400 font-semibold text-[11px]">
+                        <Shield className="w-3.5 h-3.5" /> Officers
+                      </span>
+                      <span className="text-[11px] font-mono text-purple-300 font-bold">
+                        {officerFteVal.toFixed(2)} FTE
+                      </span>
                     </div>
-                    <div className="text-lg font-bold text-white">
-                      {stats?.effectiveFTE || 0}
+                    <div className="text-base font-extrabold text-white">
+                      {officerCountVal} <span className="text-[11px] text-slate-400 font-normal">supervising</span>
                     </div>
                   </div>
                 </div>
+
+                {/* Zero Staff Alert Banner */}
+                {staffCountVal === 0 && (
+                  <div className="mb-3 px-2.5 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/25 text-[11px] text-purple-300 flex items-center gap-1.5 font-medium">
+                    <span>⚠️</span> Command Oversight Only • Awaiting Staff
+                  </div>
+                )}
 
                 {/* Supervisory Chain */}
                 {(project.hierarchy?.dsp || project.hierarchy?.ci || project.hierarchy?.si) && (
