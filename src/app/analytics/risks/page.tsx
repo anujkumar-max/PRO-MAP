@@ -282,12 +282,17 @@ export default function RiskMatrixPage() {
                           <Link 
                             href={`/people/detail?id=${person.personId}`}
                             className="text-base font-bold text-white hover:text-blue-300 transition-colors"
+                            title={`View ${person.personName}'s Profile Dossier`}
                           >
                             {person.personName}
                           </Link>
-                          <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                          <Link 
+                            href={`/people/detail?id=${person.personId}`}
+                            className="px-2 py-0.5 bg-blue-500/15 hover:bg-blue-500/30 text-blue-300 hover:text-blue-100 border border-blue-500/30 rounded font-mono text-[11px] font-bold transition-all shadow-sm"
+                            title={`View ${person.personName}'s Profile Dossier`}
+                          >
                             {person.proId}
-                          </span>
+                          </Link>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
                           <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />
@@ -385,12 +390,17 @@ export default function RiskMatrixPage() {
                             <Link 
                               href={`/people/detail?id=${person.personId}`}
                               className="text-base font-bold text-white hover:text-blue-300 transition-colors"
+                              title={`View ${person.personName}'s Profile Dossier`}
                             >
                               {person.personName}
                             </Link>
-                            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                            <Link 
+                              href={`/people/detail?id=${person.personId}`}
+                              className="px-2 py-0.5 bg-blue-500/15 hover:bg-blue-500/30 text-blue-300 hover:text-blue-100 border border-blue-500/30 rounded font-mono text-[11px] font-bold transition-all shadow-sm"
+                              title={`View ${person.personName}'s Profile Dossier`}
+                            >
                               {person.proId}
-                            </span>
+                            </Link>
                           </div>
                           <div className="flex items-center gap-2 text-xs text-slate-400 mt-1 flex-wrap">
                             <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />

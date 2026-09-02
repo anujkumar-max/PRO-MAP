@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { MonthlyCommitment, Person } from '@/types';
 import { RankRoleBadge } from '@/components/common/RankRoleBadge';
+import Link from 'next/link';
 
 export default function CommitmentsPage() {
   const [month, setMonth] = useState(getCurrentMonth());
@@ -408,15 +409,26 @@ export default function CommitmentsPage() {
                     <td className="p-4">
                       {(() => {
                         const person = persons.find(p => p.id === c.personId || p.proId === c.personProId);
+                        const personId = person?.id || c.personId;
                         return (
                           <div>
-                            <div className="font-semibold text-white group-hover:text-blue-300 transition-colors">
+                            <Link
+                              href={`/people/detail?id=${personId}`}
+                              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                              className="font-semibold text-white hover:text-blue-400 transition-colors inline-block"
+                              title={`View ${c.personName}'s Profile Dossier`}
+                            >
                               {c.personName || 'Personnel'}
-                            </div>
+                            </Link>
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[10px] font-semibold">
+                              <Link
+                                href={`/people/detail?id=${personId}`}
+                                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                className="px-1.5 py-0.5 bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 rounded font-mono text-[10px] font-bold transition-all cursor-pointer shadow-sm"
+                                title={`Click to view ${c.personName}'s Profile Dossier`}
+                              >
                                 {c.personProId}
-                              </span>
+                              </Link>
                               <RankRoleBadge rank={person?.rank} genNo={person?.genNo} size="xs" />
                             </div>
                           </div>
@@ -626,12 +638,20 @@ export default function CommitmentsPage() {
               <div className="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/90">
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded font-mono text-xs font-bold">
+                    <Link 
+                      href={`/people/detail?id=${selectedCommitment.personId}`}
+                      className="px-2 py-0.5 bg-blue-500/20 hover:bg-blue-500/35 text-blue-300 hover:text-blue-100 border border-blue-500/30 rounded font-mono text-xs font-bold transition-all shadow-sm"
+                      title="View Full Personnel Dossier"
+                    >
                       {selectedCommitment.personProId}
-                    </span>
-                    <h2 className="text-xl font-bold text-white">
+                    </Link>
+                    <Link 
+                      href={`/people/detail?id=${selectedCommitment.personId}`}
+                      className="text-xl font-bold text-white hover:text-blue-400 transition-colors"
+                      title="View Full Personnel Dossier"
+                    >
                       {selectedCommitment.personName}
-                    </h2>
+                    </Link>
                     {(() => {
                       const person = persons.find(p => p.id === selectedCommitment.personId || p.proId === selectedCommitment.personProId);
                       return <RankRoleBadge rank={person?.rank} genNo={person?.genNo} size="xs" />;

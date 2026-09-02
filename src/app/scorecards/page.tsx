@@ -9,6 +9,7 @@ import { Plus, X, BarChart2, Edit3, Award, Target, Clock, Lightbulb, Users, File
 import { MonthlyScorecard, Person } from '@/types';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { RankRoleBadge } from '@/components/common/RankRoleBadge';
+import Link from 'next/link';
 
 const SCORE_FIELDS = [
   { key: 'deliveryScore', label: 'Delivery', desc: 'Tasks completed & output volume', max: 40, icon: Target, color: 'blue' },
@@ -353,15 +354,27 @@ export default function ScorecardsPage() {
                       title={hasScore ? "Click to update scores" : "Click to evaluate"}
                     >
                       <td className="p-3">
-                        <div className="font-medium text-white group-hover:text-blue-300 transition-colors text-sm">{person.name}</div>
+                        <Link
+                          href={`/people/detail?id=${person.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="font-medium text-white hover:text-blue-300 transition-colors text-sm inline-block"
+                          title={`View ${person.name}'s Profile Dossier`}
+                        >
+                          {person.name}
+                        </Link>
                         <div className="mt-0.5">
                           <RankRoleBadge rank={person.rank} genNo={person.genNo} size="xs" />
                         </div>
                       </td>
                       <td className="p-3">
-                        <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                        <Link
+                          href={`/people/detail?id=${person.id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="px-1.5 py-0.5 bg-blue-500/15 hover:bg-blue-500/30 text-blue-400 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 rounded font-mono text-[11px] font-bold transition-all inline-block shadow-sm cursor-pointer"
+                          title={`View ${person.name}'s Profile Dossier`}
+                        >
                           {person.proId}
-                        </span>
+                        </Link>
                       </td>
                       {hasScore ? (
                         <>
@@ -472,8 +485,20 @@ export default function ScorecardsPage() {
                       {selectedPerson && (
                         <>
                           <span>•</span>
-                          <span className="text-white font-semibold">{selectedPerson.name}</span>
-                          <span className="text-blue-300 font-mono">({selectedPerson.proId})</span>
+                          <Link 
+                            href={`/people/detail?id=${selectedPerson.id}`}
+                            className="text-white hover:text-blue-300 font-semibold transition-colors"
+                            title="View Full Profile Dossier"
+                          >
+                            {selectedPerson.name}
+                          </Link>
+                          <Link 
+                            href={`/people/detail?id=${selectedPerson.id}`}
+                            className="text-blue-300 hover:text-blue-100 font-mono font-semibold hover:underline"
+                            title="View Full Profile Dossier"
+                          >
+                            ({selectedPerson.proId})
+                          </Link>
                           <RankRoleBadge rank={selectedPerson.rank} genNo={selectedPerson.genNo} size="xs" />
                         </>
                       )}
