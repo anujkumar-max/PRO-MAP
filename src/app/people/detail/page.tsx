@@ -28,14 +28,23 @@ function PersonDetailContent() {
     );
   }
 
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/manpower');
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <div className="p-4 md:px-8 pt-6">
         <button
-          onClick={() => router.push('/manpower')}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all shadow-md cursor-pointer group"
+          title="Return to the previous screen"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Manpower Matrix
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Previous Page
         </button>
       </div>
       <PersonProfileView id={id} />

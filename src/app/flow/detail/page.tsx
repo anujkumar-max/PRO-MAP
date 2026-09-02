@@ -28,14 +28,23 @@ function FlowDetailContent() {
     );
   }
 
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push(`/projects?id=${id}`);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col space-y-4 pb-6">
       <div className="flex items-center justify-between">
         <button
-          onClick={() => router.push(`/projects?id=${id}`)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all shadow-md cursor-pointer"
+          onClick={handleBack}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-xl text-sm font-medium text-slate-300 hover:text-white transition-all shadow-md cursor-pointer group"
+          title="Return to the previous screen"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Project Details
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" /> Back to Project Details
         </button>
       </div>
       <div className="flex-1 w-full">
