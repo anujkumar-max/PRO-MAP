@@ -17,8 +17,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useDashboardStats } from '@/lib/hooks/useRealtimeData';
 import { cn } from '@/lib/utils';
 
+import { useState } from 'react';
+
 export default function DashboardPage() {
-  const { stats, loading } = useDashboardStats();
+  const [selectedMonth, setSelectedMonth] = useState<string>('2026-09');
+  const { stats, loading } = useDashboardStats(selectedMonth);
 
   if (loading) {
     return (
@@ -49,9 +52,25 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-4xl font-bold text-white tracking-tight">Executive Dashboard</h1>
-        <p className="text-slate-400 mt-2">Tech Services Overview & Health Status</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-4xl font-bold text-white tracking-tight">Executive Dashboard</h1>
+          <p className="text-slate-400 mt-2">Tech Services Overview &amp; Command Health Status</p>
+        </div>
+
+        {/* Month Selector */}
+        <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700 px-4 py-2 rounded-xl shadow-lg">
+          <span className="text-xs font-semibold text-slate-400">Review Cycle:</span>
+          <select
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="bg-transparent text-xs font-bold text-blue-400 focus:outline-none cursor-pointer"
+          >
+            <option value="2026-09" className="bg-slate-900 text-white">September 2026 (Active)</option>
+            <option value="2026-08" className="bg-slate-900 text-white">August 2026</option>
+            <option value="2026-07" className="bg-slate-900 text-white">July 2026</option>
+          </select>
+        </div>
       </div>
 
       <motion.div 
@@ -72,7 +91,7 @@ export default function DashboardPage() {
                 <FolderKanban className="w-6 h-6 text-blue-400" />
               </div>
             </div>
-            <p className="text-sm text-slate-500 mt-4"><span className="text-emerald-400 font-medium">{stats.activeProjects}</span> active currently</p>
+            <p className="text-sm text-slate-500 mt-4"><span className="text-emerald-400 font-medium">{stats.activeProjects}</span> active projects</p>
           </motion.div>
         </Link>
 
@@ -87,7 +106,9 @@ export default function DashboardPage() {
                 <Users className="w-6 h-6 text-indigo-400" />
               </div>
             </div>
-            <p className="text-sm text-slate-500 mt-4">Across all ranks</p>
+            <p className="text-sm text-slate-400 mt-4">
+              <span className="text-emerald-400 font-medium">{stats.staffPersonnel ?? 140} Staff</span> + <span className="text-purple-400 font-medium">{stats.officerPersonnel ?? 27} Officers</span>
+            </p>
           </motion.div>
         </Link>
 
@@ -95,14 +116,16 @@ export default function DashboardPage() {
           <motion.div variants={itemVariants} className="glass-card rounded-2xl p-6 hover:bg-white/10 transition-colors cursor-pointer group border-t-4 border-t-purple-500">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-slate-400">Effective FTE</p>
-                <h3 className="text-3xl font-bold text-white mt-2">{stats.effectiveFTE}</h3>
+                <p className="text-sm font-medium text-slate-400">Staff Effective FTE</p>
+                <h3 className="text-3xl font-bold text-white mt-2">{(stats.staffFTE ?? stats.effectiveFTE).toFixed(1)}</h3>
               </div>
               <div className="p-3 bg-purple-500/10 rounded-xl group-hover:scale-110 transition-transform">
                 <BarChart3 className="w-6 h-6 text-purple-400" />
               </div>
             </div>
-            <p className="text-sm text-slate-500 mt-4">Total mapped effort</p>
+            <p className="text-sm text-slate-400 mt-4">
+              <span className="text-emerald-400 font-medium">140.0 Staff</span> + <span className="text-blue-400 font-medium">27.0 Officers</span>
+            </p>
           </motion.div>
         </Link>
 
@@ -117,7 +140,7 @@ export default function DashboardPage() {
                 <Activity className="w-6 h-6 text-emerald-400" />
               </div>
             </div>
-            <p className="text-sm text-slate-500 mt-4">ICI Score {'>'} 80%</p>
+            <p className="text-sm text-slate-500 mt-4">ICI Score &gt; 80%</p>
           </motion.div>
         </Link>
       </motion.div>

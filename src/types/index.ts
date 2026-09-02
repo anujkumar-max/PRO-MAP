@@ -16,6 +16,7 @@ export interface Person {
   workingSince: string; // ISO date string
   photoUrl?: string;
   status: 'Active' | 'Inactive';
+  isOfficer?: boolean;
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
 }
@@ -63,6 +64,7 @@ export interface Assignment {
   raciType: RaciType;
   primaryOrSupport: 'Primary' | 'Support';
   reportingTo: string;
+  isOfficerAssignment?: boolean;
   remarks?: string;
 }
 
@@ -196,7 +198,11 @@ export interface DashboardStats {
   totalProjects: number;
   activeProjects: number;
   totalPersonnel: number;
+  staffPersonnel?: number;
+  officerPersonnel?: number;
   effectiveFTE: number;
+  staffFTE?: number;
+  officerFTE?: number;
   projectsGreen: number;
   projectsAmber: number;
   projectsRed: number;

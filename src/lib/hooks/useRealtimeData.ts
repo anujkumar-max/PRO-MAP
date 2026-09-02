@@ -136,7 +136,7 @@ export function useProjectNotes(projectId: string) {
 
 // ---- Dashboard Stats (Computed from real-time data) ----
 
-export function useDashboardStats(): {
+export function useDashboardStats(selectedMonth?: string): {
   stats: DashboardStats;
   loading: boolean;
   persons: Person[];
@@ -155,27 +155,74 @@ export function useDashboardStats(): {
 
   const loading = loadingPersons || loadingProjects || loadingAssignments || loadingScorecards || loadingCommitments || loadingHealth;
 
-  // Calculate dashboard stats from real-time data
-  const currentMonth = new Date().toISOString().slice(0, 7); // "2026-08"
-  const currentScorecards = scorecards.filter((s) => s.month === currentMonth);
-  const currentCommitments = commitments.filter((c) => c.month === currentMonth);
-  const currentHealth = healthCards.filter((h) => h.month === currentMonth);
+  // Identify officer vs staff
+  const isOfficer = (r?: string, flag?: boolean) => {
+    if (flag) return true;
+    const u = (r || '').toUpperCase().trim();
+    return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(u);
+  };
+
+  const activePersons = persons.filter((p) => p.status === 'Active');
+  const staffPersons = activePersons.filter(p => !isOfficer(p.rank, p.isOfficer));
+  const officerPersons = activePersons.filter(p => isOfficer(p.rank, p.isOfficer));
+
+  // Determine active month or latest available
+  const defaultMonth = new Date().toISOString().slice(0, 7);
+  const activeMonth = selectedMonth || defaultMonth;
+
+  let currentHealth = healthCards.filter((h) => h.month === activeMonth);
+  if (currentHealth.length === 0 && healthCards.length > 0) {
+    // Fallback to latest available month
+    const months = Array.from(new Set(healthCards.map(h => h.month))).sort().reverse();
+    if (months.length > 0) {
+      currentHealth = healthCards.filter((h) => h.month === months[0]);
+    }
+  }
+
+  let currentScorecards = scorecards.filter((s) => s.month === activeMonth);
+  if (currentScorecards.length === 0 && scorecards.length > 0) {
+    const months = Array.from(new Set(scorecards.map(s => s.month))).sort().reverse();
+    if (months.length > 0) {
+      currentScorecards = scorecards.filter((s) => s.month === months[0]);
+    }
+  }
+
+  let currentCommitments = commitments.filter((c) => c.month === activeMonth);
+  if (currentCommitments.length === 0 && commitments.length > 0) {
+    const months = Array.from(new Set(commitments.map(c => c.month))).sort().reverse();
+    if (months.length > 0) {
+      currentCommitments = commitments.filter((c) => c.month === months[0]);
+    }
+  }
 
   // Calculate FTE per person
   const personAllocations = new Map<string, number>();
+  let staffAllocSum = 0;
+  let officerAllocSum = 0;
+
   assignments.forEach((a) => {
     const current = personAllocations.get(a.personId) || 0;
     personAllocations.set(a.personId, current + a.allocationPercent);
+    const p = persons.find(x => x.id === a.personId);
+    if (isOfficer(p?.rank, p?.isOfficer || a.isOfficerAssignment)) {
+      officerAllocSum += a.allocationPercent;
+    } else {
+      staffAllocSum += a.allocationPercent;
+    }
   });
 
-  // Effective FTE across all projects
-  const effectiveFTE = assignments.reduce((sum, a) => sum + a.allocationPercent / 100, 0);
+  const staffFTE = staffAllocSum / 100;
+  const officerFTE = officerAllocSum / 100;
 
   const stats: DashboardStats = {
     totalProjects: projects.length,
     activeProjects: projects.filter((p) => p.status === 'Active').length,
-    totalPersonnel: persons.filter((p) => p.status === 'Active').length,
-    effectiveFTE: Math.round(effectiveFTE * 10) / 10,
+    totalPersonnel: activePersons.length,
+    staffPersonnel: staffPersons.length,
+    officerPersonnel: officerPersons.length,
+    effectiveFTE: Math.round(staffFTE * 10) / 10,
+    staffFTE: Math.round(staffFTE * 10) / 10,
+    officerFTE: Math.round(officerFTE * 10) / 10,
     projectsGreen: currentHealth.filter((h) => h.health === 'green').length,
     projectsAmber: currentHealth.filter((h) => h.health === 'amber').length,
     projectsRed: currentHealth.filter((h) => h.health === 'red').length,

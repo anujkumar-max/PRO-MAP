@@ -14,19 +14,34 @@ export default function FTEAnalyticsPage() {
   const [expandedPerson, setExpandedPerson] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'overallocated' | 'underallocated' | 'optimal'>('all');
+  const [cadreFilter, setCadreFilter] = useState<'all' | 'staff' | 'officers'>('all');
 
   const loading = personsLoading || projectsLoading;
 
-  // Summary stats
-  const totalFTE = projectFTEs.reduce((sum, p) => sum + p.effectiveFTE, 0);
-  const avgAllocation = personFTEs.length > 0 ? personFTEs.reduce((sum, p) => sum + p.totalAllocation, 0) / personFTEs.length : 0;
-  const overallocatedCount = personFTEs.filter(p => p.totalAllocation > 100).length;
-  const underallocatedCount = personFTEs.filter(p => p.totalAllocation < 100).length;
-  const optimalCount = personFTEs.filter(p => p.totalAllocation === 100).length;
+  const isOfficerRank = (r?: string) => {
+    const u = (r || '').toUpperCase().trim();
+    return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(u);
+  };
 
-  // Filtered Person FTEs based on search and status filter
+  const staffPersons = useMemo(() => personFTEs.filter(p => !isOfficerRank(p.rank)), [personFTEs]);
+  const officerPersons = useMemo(() => personFTEs.filter(p => isOfficerRank(p.rank)), [personFTEs]);
+
+  // Summary stats based on cadreFilter
+  const activePool = useMemo(() => {
+    if (cadreFilter === 'staff') return staffPersons;
+    if (cadreFilter === 'officers') return officerPersons;
+    return personFTEs;
+  }, [cadreFilter, staffPersons, officerPersons, personFTEs]);
+
+  const poolFTE = activePool.reduce((sum, p) => sum + (p.totalAllocation / 100), 0);
+  const avgAllocation = activePool.length > 0 ? activePool.reduce((sum, p) => sum + p.totalAllocation, 0) / activePool.length : 0;
+  const overallocatedCount = activePool.filter(p => p.totalAllocation > 100).length;
+  const underallocatedCount = activePool.filter(p => p.totalAllocation < 100).length;
+  const optimalCount = activePool.filter(p => p.totalAllocation === 100).length;
+
+  // Filtered Person FTEs based on search, status filter, and cadre filter
   const filteredPersons = useMemo(() => {
-    return personFTEs.filter(person => {
+    return activePool.filter(person => {
       // 1. Status Filter
       if (statusFilter === 'overallocated' && person.totalAllocation <= 100) return false;
       if (statusFilter === 'underallocated' && person.totalAllocation >= 100) return false;
@@ -45,7 +60,7 @@ export default function FTEAnalyticsPage() {
 
       return matchesName || matchesProId || matchesRank || matchesProject;
     });
-  }, [personFTEs, searchQuery, statusFilter]);
+  }, [activePool, searchQuery, statusFilter]);
 
   if (loading) {
     return <div className="p-8 text-slate-400 text-center">Loading FTE analytics &amp; capacity data...</div>;
@@ -79,6 +94,37 @@ export default function FTEAnalyticsPage() {
           </h1>
           <p className="text-slate-400 mt-1">Resource allocation, capacity distribution, and personnel workload tracking.</p>
         </div>
+
+        {/* Cadre Filter Pills */}
+        <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800 text-xs font-semibold shadow-lg">
+          <button
+            onClick={() => setCadreFilter('all')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg transition-all",
+              cadreFilter === 'all' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"
+            )}
+          >
+            All Personnel ({personFTEs.length})
+          </button>
+          <button
+            onClick={() => setCadreFilter('staff')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg transition-all",
+              cadreFilter === 'staff' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
+            )}
+          >
+            👥 Staff ({staffPersons.length})
+          </button>
+          <button
+            onClick={() => setCadreFilter('officers')}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg transition-all",
+              cadreFilter === 'officers' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+            )}
+          >
+            🛡️ Officers ({officerPersons.length})
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -90,10 +136,14 @@ export default function FTEAnalyticsPage() {
             statusFilter === 'all' ? "border-blue-500/60 ring-1 ring-blue-500/40" : "border-white/10"
           )}
         >
-          <p className="text-slate-400 text-xs uppercase tracking-wider mb-1 font-semibold">Total Effective FTE</p>
+          <p className="text-slate-400 text-xs uppercase tracking-wider mb-1 font-semibold">
+            {cadreFilter === 'staff' ? 'Staff Operational FTE' : cadreFilter === 'officers' ? 'Supervisory Command FTE' : 'Total Operational FTE'}
+          </p>
           <div className="flex items-baseline justify-between">
-            <p className="text-3xl font-bold text-white">{totalFTE.toFixed(1)}</p>
-            <span className="text-xs text-slate-400 font-mono">{personFTEs.length} Officers</span>
+            <p className="text-3xl font-bold text-white">{poolFTE.toFixed(1)}</p>
+            <span className="text-xs text-slate-400 font-mono">
+              {activePool.length} {cadreFilter === 'staff' ? 'Staff' : cadreFilter === 'officers' ? 'Officers' : 'Personnel'}
+            </span>
           </div>
         </div>
 
@@ -105,11 +155,13 @@ export default function FTEAnalyticsPage() {
           )}
         >
           <p className="text-emerald-400 text-xs uppercase tracking-wider mb-1 font-semibold flex items-center gap-1.5">
-            <CheckCircle2 size={14} /> Optimal (100% Alloc)
+            <CheckCircle2 size={14} /> 100% Deployed
           </p>
           <div className="flex items-baseline justify-between">
             <p className="text-3xl font-bold text-emerald-400">{optimalCount}</p>
-            <span className="text-xs text-emerald-300/70 font-mono">{((optimalCount / personFTEs.length) * 100).toFixed(0)}% of staff</span>
+            <span className="text-xs text-emerald-300/70 font-mono">
+              {activePool.length > 0 ? ((optimalCount / activePool.length) * 100).toFixed(0) : 0}% of pool
+            </span>
           </div>
         </div>
 
@@ -204,7 +256,7 @@ export default function FTEAnalyticsPage() {
             <div>
               <h2 className="text-lg font-bold text-white">Personnel Allocation &amp; FTE Breakdown</h2>
               <p className="text-xs text-slate-400 mt-0.5">
-                Showing <span className="text-blue-400 font-semibold">{filteredPersons.length}</span> of {personFTEs.length} officers
+                Showing <span className="text-blue-400 font-semibold">{filteredPersons.length}</span> of {personFTEs.length} active personnel ({staffPersons.length} Staff + {officerPersons.length} Officers)
               </p>
             </div>
 

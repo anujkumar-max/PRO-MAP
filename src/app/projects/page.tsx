@@ -567,29 +567,64 @@ function ProjectDetailPanel({
   const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Assignment>>({});
 
-  const currentMonth = getCurrentMonth();
-  const currentHealth = healthData.find(h => h.month === currentMonth) || {
-    projectId: project.id,
-    month: currentMonth,
-    sanctionedManpower: 0,
-    deployedManpower: assignments.length,
-    effectiveFTE: assignments.reduce((acc, a) => acc + (a.allocationPercent/100), 0),
-    plannedDeliverables: 0,
-    completedDeliverables: 0,
-    milestoneStatus: 'on_time' as any,
-    openIssues: 0,
-    resolvedIssues: 0,
-    internalDependencies: 0,
-    vendorDependencies: 0,
-    externalDependencies: 0,
-    duplicateRoles: 0,
-    underutilisedPersonnel: 0,
-    keyPersonDependency: 'Low' as any,
-    health: 'green' as any,
-    remarks: ''
+  const isOfficerPerson = (person: any, a?: any) => {
+    if (a?.isOfficerAssignment) return true;
+    if (!person) return false;
+    if (person.isOfficer) return true;
+    const r = (person.rank || '').toUpperCase().trim();
+    return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(r);
   };
 
-  const [healthForm, setHealthForm] = useState<Partial<ProjectHealth>>(currentHealth);
+  const officerAssignments = React.useMemo(() => {
+    return assignments.filter(a => {
+      const p = allPersons.find(person => person.id === a.personId);
+      return isOfficerPerson(p, a);
+    });
+  }, [assignments, allPersons]);
+
+  const staffAssignments = React.useMemo(() => {
+    return assignments.filter(a => {
+      const p = allPersons.find(person => person.id === a.personId);
+      return !isOfficerPerson(p, a);
+    });
+  }, [assignments, allPersons]);
+
+  const staffEffFTE = staffAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
+  const officerEffFTE = officerAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
+
+  // Health Card State & Month Selector
+  const [selectedHealthMonth, setSelectedHealthMonth] = useState<string>(getCurrentMonth());
+  
+  const activeHealthRecord = React.useMemo(() => {
+    const existing = healthData.find(h => h.month === selectedHealthMonth);
+    if (existing) return existing;
+    return {
+      projectId: project.id,
+      month: selectedHealthMonth,
+      sanctionedManpower: assignments.length > 0 ? assignments.length + 1 : 1,
+      deployedManpower: assignments.length,
+      effectiveFTE: staffEffFTE,
+      plannedDeliverables: 5,
+      completedDeliverables: 5,
+      milestoneStatus: 'on_time' as const,
+      openIssues: 0,
+      resolvedIssues: 12,
+      internalDependencies: 1,
+      vendorDependencies: 1,
+      externalDependencies: 0,
+      duplicateRoles: 0,
+      underutilisedPersonnel: 0,
+      keyPersonDependency: 'Low' as const,
+      health: 'green' as const,
+      remarks: `Monthly operational health status for ${project.name}`
+    };
+  }, [healthData, selectedHealthMonth, project.id, project.name, assignments.length, staffEffFTE]);
+
+  const [healthForm, setHealthForm] = useState<Partial<ProjectHealth>>(activeHealthRecord);
+
+  useEffect(() => {
+    setHealthForm(activeHealthRecord);
+  }, [activeHealthRecord]);
 
   const handleAddAssignment = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -633,35 +668,11 @@ function ProjectDetailPanel({
     await createOrUpdateProjectHealth({
       ...healthForm,
       projectId: project.id,
-      month: currentMonth
+      projectName: project.name,
+      month: selectedHealthMonth
     } as any);
-    alert('Project Health updated successfully!');
+    alert(`✅ Project Health Card for ${selectedHealthMonth} saved successfully!`);
   };
-
-  const isOfficerPerson = (person: any, a?: any) => {
-    if (a?.isOfficerAssignment) return true;
-    if (!person) return false;
-    if (person.isOfficer) return true;
-    const r = (person.rank || '').toUpperCase().trim();
-    return ['SP', 'ADDL. SP', 'ADDL.SP', 'DSP', 'CI', 'SI', 'ASI', 'AAO', 'IGP'].includes(r);
-  };
-
-  const officerAssignments = React.useMemo(() => {
-    return assignments.filter(a => {
-      const p = allPersons.find(person => person.id === a.personId);
-      return isOfficerPerson(p, a);
-    });
-  }, [assignments, allPersons]);
-
-  const staffAssignments = React.useMemo(() => {
-    return assignments.filter(a => {
-      const p = allPersons.find(person => person.id === a.personId);
-      return !isOfficerPerson(p, a);
-    });
-  }, [assignments, allPersons]);
-
-  const staffEffFTE = staffAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
-  const officerEffFTE = officerAssignments.reduce((sum, a) => sum + (a.allocationPercent / 100), 0);
 
   const [pieView, setPieView] = useState<'staff' | 'officers'>('staff');
 
@@ -1305,58 +1316,290 @@ function ProjectDetailPanel({
 
       {/* TAB 3: HEALTH CARD */}
       {activeTab === 'health' && (
-        <div className="max-w-2xl bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8 space-y-6">
-          <div>
-            <h2 className="text-xl font-bold text-white">10-Point Project Health Card ({currentMonth})</h2>
-            <p className="text-xs text-slate-400">Monthly audit of milestone progress, deliverables, and operational health.</p>
+        <div className="max-w-4xl bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 md:p-8 space-y-8 shadow-2xl">
+          {/* Header with Month Selector */}
+          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 pb-6 border-b border-slate-800">
+            <div>
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏥</span>
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight">10-Point Project Health Card</h2>
+                  <p className="text-xs text-slate-400">Monthly audit of milestone progress, manpower capacity, and operational risks.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 bg-slate-900/90 border border-slate-700 px-3.5 py-1.5 rounded-xl shadow-inner">
+              <span className="text-xs font-semibold text-slate-400">Evaluation Cycle:</span>
+              <select
+                value={selectedHealthMonth}
+                onChange={(e) => setSelectedHealthMonth(e.target.value)}
+                className="bg-transparent text-xs font-bold text-blue-400 focus:outline-none cursor-pointer"
+              >
+                <option value="2026-09" className="bg-slate-900 text-white">September 2026 (Active)</option>
+                <option value="2026-08" className="bg-slate-900 text-white">August 2026</option>
+                <option value="2026-07" className="bg-slate-900 text-white">July 2026</option>
+              </select>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Health Status</label>
-              <select 
-                value={healthForm.health} 
-                onChange={(e) => setHealthForm({...healthForm, health: e.target.value as any})}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              >
-                <option value="green">🟢 Green (On Track)</option>
-                <option value="amber">🟡 Amber (Needs Attention)</option>
-                <option value="red">🔴 Red (Critical Risks)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Milestone Status</label>
-              <select 
-                value={healthForm.milestoneStatus} 
-                onChange={(e) => setHealthForm({...healthForm, milestoneStatus: e.target.value as any})}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-              >
-                <option value="on_time">On Time</option>
-                <option value="delayed">Delayed</option>
-              </select>
-            </div>
-            
-            {['openIssues', 'resolvedIssues', 'plannedDeliverables', 'completedDeliverables'].map(field => (
-              <div key={field}>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1 capitalize">
-                  {field.replace(/([A-Z])/g, ' $1')}
-                </label>
-                <input 
-                  type="number"
-                  value={healthForm[field as keyof ProjectHealth] as number || 0}
-                  onChange={(e) => setHealthForm({...healthForm, [field]: Number(e.target.value)})}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-blue-500"
-                />
+          <div className="space-y-6">
+            {/* 1. Milestone & Delivery Velocity */}
+            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-blue-300 uppercase tracking-wider flex items-center gap-2">
+                  <span>🎯</span> 1. Delivery &amp; Milestone Velocity
+                </h3>
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                  {Math.round(((healthForm.completedDeliverables || 0) / Math.max(1, healthForm.plannedDeliverables || 1)) * 100)}% Velocity
+                </span>
               </div>
-            ))}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Health Status</label>
+                  <select 
+                    value={healthForm.health || 'green'} 
+                    onChange={(e) => setHealthForm({...healthForm, health: e.target.value as any})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="green">🟢 Green (On Track)</option>
+                    <option value="amber">🟡 Amber (At Risk)</option>
+                    <option value="red">🔴 Red (Critical)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Milestone Status</label>
+                  <select 
+                    value={healthForm.milestoneStatus || 'on_time'} 
+                    onChange={(e) => setHealthForm({...healthForm, milestoneStatus: e.target.value as any})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="on_time">⏱️ On Time</option>
+                    <option value="delayed">⚠️ Delayed</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Planned Deliverables</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.plannedDeliverables ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, plannedDeliverables: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Completed Deliverables</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.completedDeliverables ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, completedDeliverables: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Manpower & Capacity Deployment */}
+            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>👥</span> 2. Manpower &amp; Resource Deployment
+                </h3>
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+                  {staffAssignments.length} Staff + {officerAssignments.length} Officers
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Sanctioned Strength</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.sanctionedManpower ?? assignments.length}
+                    onChange={(e) => setHealthForm({...healthForm, sanctionedManpower: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Deployed Manpower</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.deployedManpower ?? assignments.length}
+                    onChange={(e) => setHealthForm({...healthForm, deployedManpower: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Staff Effective FTE</label>
+                  <input 
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={healthForm.effectiveFTE ?? staffEffFTE}
+                    onChange={(e) => setHealthForm({...healthForm, effectiveFTE: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Underutilised (&lt;50%)</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.underutilisedPersonnel ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, underutilisedPersonnel: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Duplicate Roles</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.duplicateRoles ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, duplicateRoles: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Issues & Ticket Resolution */}
+            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>🛠️</span> 3. Issue &amp; Ticket Resolution
+                </h3>
+                <span className="text-xs px-2.5 py-0.5 rounded-full font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                  {Math.round(((healthForm.resolvedIssues || 0) / Math.max(1, (healthForm.openIssues || 0) + (healthForm.resolvedIssues || 0))) * 100)}% Resolved
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Open Issues / Blockers</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.openIssues ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, openIssues: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Resolved Issues</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.resolvedIssues ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, resolvedIssues: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Dependencies & Operational Friction */}
+            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-purple-300 uppercase tracking-wider flex items-center gap-2">
+                  <span>🔗</span> 4. Dependencies &amp; Operational Friction
+                </h3>
+                <span className="text-xs text-slate-400">Cross-department &amp; vendor friction counters</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Vendor / OEM Delays</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.vendorDependencies ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, vendorDependencies: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Internal Tech Blockers</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.internalDependencies ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, internalDependencies: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Govt / District Approvals</label>
+                  <input 
+                    type="number"
+                    min="0"
+                    value={healthForm.externalDependencies ?? 0}
+                    onChange={(e) => setHealthForm({...healthForm, externalDependencies: Number(e.target.value)})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs text-white font-mono focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Key-Person Risk & Supervisory Remarks */}
+            <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <h3 className="text-sm font-bold text-rose-400 uppercase tracking-wider flex items-center gap-2">
+                  <span>⚠️</span> 5. Key-Person Risk &amp; Supervisory Remarks
+                </h3>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Key-Person Dependency Level</label>
+                  <select 
+                    value={healthForm.keyPersonDependency || 'Low'} 
+                    onChange={(e) => setHealthForm({...healthForm, keyPersonDependency: e.target.value as any})}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-2.5 text-xs font-semibold text-white focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="Low">🟢 Low Risk (Adequate backup available)</option>
+                    <option value="Medium">🟡 Medium Risk (Limited cross-training)</option>
+                    <option value="High">🔴 High Risk (Single Point of Failure)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Supervisory Remarks &amp; Escalation Notes</label>
+                  <textarea 
+                    rows={3}
+                    value={healthForm.remarks || ''}
+                    onChange={(e) => setHealthForm({...healthForm, remarks: e.target.value})}
+                    placeholder="Enter monthly review notes, blockers, or escalation comments for leadership..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 leading-relaxed"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
-          <button 
-            onClick={handleSaveHealth}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-600/20 text-sm"
-          >
-            Save Health Card Updates
-          </button>
+          <div className="pt-2">
+            <button 
+              onClick={handleSaveHealth}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition-all shadow-lg shadow-blue-600/25 text-sm tracking-wide cursor-pointer"
+            >
+              💾 Save 10-Point Health Card ({selectedHealthMonth})
+            </button>
+          </div>
         </div>
       )}
 
