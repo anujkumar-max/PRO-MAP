@@ -2,19 +2,22 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { usePersonFTEs, useProjectFTEs } from '@/lib/hooks/useRealtimeData';
+import { usePersonFTEs, useProjectFTEs, useProjects } from '@/lib/hooks/useRealtimeData';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 import { cn } from '@/lib/utils';
 import { Users, AlertTriangle, ChevronDown, Search, X, Filter, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 import { RankRoleBadge } from '@/components/common/RankRoleBadge';
+import { PROJECT_SEGMENTS } from '@/types';
 
 export default function FTEAnalyticsPage() {
   const { data: personFTEs, loading: personsLoading } = usePersonFTEs();
   const { data: projectFTEs, loading: projectsLoading } = useProjectFTEs();
+  const { data: projects } = useProjects();
   const [expandedPerson, setExpandedPerson] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'overallocated' | 'underallocated' | 'optimal'>('all');
   const [cadreFilter, setCadreFilter] = useState<'all' | 'staff' | 'officers'>('all');
+  const [segmentFilter, setSegmentFilter] = useState<string>('all');
 
   const loading = personsLoading || projectsLoading;
 
@@ -39,7 +42,7 @@ export default function FTEAnalyticsPage() {
   const underallocatedCount = activePool.filter(p => p.totalAllocation < 100).length;
   const optimalCount = activePool.filter(p => p.totalAllocation === 100).length;
 
-  // Filtered Person FTEs based on search, status filter, and cadre filter
+  // Filtered Person FTEs based on search, status filter, segment filter, and cadre filter
   const filteredPersons = useMemo(() => {
     return activePool.filter(person => {
       // 1. Status Filter
@@ -47,7 +50,16 @@ export default function FTEAnalyticsPage() {
       if (statusFilter === 'underallocated' && person.totalAllocation >= 100) return false;
       if (statusFilter === 'optimal' && person.totalAllocation !== 100) return false;
 
-      // 2. Search Query (Matches Name, PRO-ID, Rank, or Assigned Project Names)
+      // 2. Segment Filter
+      if (segmentFilter !== 'all') {
+        const inSegment = person.assignments.some(a => {
+          const pr = projects.find(p => p.id === a.projectId || p.name === a.projectName);
+          return pr?.segmentId === segmentFilter;
+        });
+        if (!inSegment) return false;
+      }
+
+      // 3. Search Query (Matches Name, PRO-ID, Rank, or Assigned Project Names)
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase().trim();
 
@@ -60,7 +72,7 @@ export default function FTEAnalyticsPage() {
 
       return matchesName || matchesProId || matchesRank || matchesProject;
     });
-  }, [activePool, searchQuery, statusFilter]);
+  }, [activePool, projects, segmentFilter, searchQuery, statusFilter]);
 
   if (loading) {
     return <div className="p-8 text-slate-400 text-center">Loading FTE analytics &amp; capacity data...</div>;
@@ -198,6 +210,67 @@ export default function FTEAnalyticsPage() {
         </div>
       </div>
 
+      {/* 5-Segment Staff Capacity Distribution Widget */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-5 shadow-xl space-y-3">
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>🏛️</span> 5-Segment Capacity Deployment Breakdown
+            </h3>
+            <p className="text-xs text-slate-400">Total: 140.0 Staff FTE deployed across 36 departmental technology initiatives</p>
+          </div>
+          {segmentFilter !== 'all' && (
+            <button
+              onClick={() => setSegmentFilter('all')}
+              className="text-xs text-blue-400 hover:text-white font-semibold flex items-center gap-1 cursor-pointer"
+            >
+              Clear Segment Filter <X size={12} />
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {PROJECT_SEGMENTS.map(seg => {
+            const segProjects = projects.filter(p => p.segmentId === seg.id);
+            const fteMap = new Map(projectFTEs.map(f => [f.projectId, f]));
+            const segStaffFTE = segProjects.reduce((sum, p) => {
+              const f = fteMap.get(p.id);
+              return sum + (f?.staffFTE ?? f?.effectiveFTE ?? 0);
+            }, 0);
+            const isSelected = segmentFilter === seg.id;
+            return (
+              <button
+                key={seg.id}
+                onClick={() => setSegmentFilter(segmentFilter === seg.id ? 'all' : seg.id)}
+                className={cn(
+                  "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                  isSelected ? `${seg.badgeBg} ${seg.badgeBorder} ring-1 ring-white/30 shadow-md` : "bg-slate-900/60 border-slate-800 hover:bg-slate-800/80"
+                )}
+              >
+                <div className="flex justify-between items-center text-xs font-semibold mb-1">
+                  <span className="text-slate-300 flex items-center gap-1">
+                    <span>{seg.icon}</span> {seg.shortName}
+                  </span>
+                  <span className="font-mono text-emerald-400 font-bold">{segStaffFTE.toFixed(1)} FTE</span>
+                </div>
+                <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                  <div 
+                    className="bg-emerald-500 h-full rounded-full transition-all"
+                    style={{ width: `${Math.min(100, (segStaffFTE / 140) * 100 * 2.5)}%` }}
+                  />
+                </div>
+                <div className="text-[10px] text-slate-400 mt-1.5 flex justify-between items-center">
+                  <span>{segProjects.length} initiatives</span>
+                  <span className={cn("font-medium", isSelected ? "text-emerald-400 font-bold" : "text-blue-400")}>
+                    {isSelected ? '✓ Filtering' : 'Click to filter'}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 h-[380px] flex flex-col">
@@ -301,25 +374,44 @@ export default function FTEAnalyticsPage() {
             </div>
           </div>
 
-          {/* Search Bar Input */}
-          <div className="relative max-w-lg">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by officer name, PRO-ID (e.g. PRO-001), rank, or project..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-10 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
-                title="Clear search"
+          {/* Search Bar + Segment Dropdown */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1 max-w-lg">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search by officer name, PRO-ID (e.g. PRO-001), rank, or project..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition-colors shadow-inner"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-lg transition-colors"
+                  title="Clear search"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs shadow-inner">
+              <Filter className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+              <span className="text-slate-400 font-semibold whitespace-nowrap">Segment:</span>
+              <select
+                value={segmentFilter}
+                onChange={(e) => setSegmentFilter(e.target.value)}
+                className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
               >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+                <option value="all" className="bg-slate-900 text-white">📁 All Segments (5)</option>
+                {PROJECT_SEGMENTS.map(s => (
+                  <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                    {s.icon} {s.shortName}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 

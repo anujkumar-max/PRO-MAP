@@ -205,6 +205,48 @@ export default function SystemGuidePage() {
                     </div>
                   </div>
 
+                  {/* The 5 Strategic Operational Segments */}
+                  <div className="my-6 p-5 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-4">
+                    <div className="flex items-center gap-2 text-white font-bold text-base">
+                      <span>🏛️</span> 5 Strategic Operational Segments (36 Initiatives)
+                    </div>
+                    <p className="text-xs text-slate-300">
+                      All 36 technology projects are structured into 5 cohesive operational verticals for clear command oversight and balanced capacity deployment:
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-1">
+                      <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-1">
+                        <span className="text-base">🚔</span>
+                        <strong className="text-blue-300 block text-xs font-bold">1. Core Policing &amp; Criminal Justice</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">9 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">CCTNS, ICJS, APCOPS 2.0, Cri-Mac, CEIR, NATGRID, E-CHALLAN, e-dar, PM Gatishakti</span>
+                      </div>
+                      <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/30 rounded-xl space-y-1">
+                        <span className="text-base">📹</span>
+                        <strong className="text-indigo-300 block text-xs font-bold">2. Surveillance, Drones &amp; Cyber</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">5 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">CCTV in PS, CCTV-360 Cloud, DRONES, LHMS &amp; BWC, SASE &amp; XDR Defense</span>
+                      </div>
+                      <div className="p-3.5 bg-cyan-500/10 border border-cyan-500/30 rounded-xl space-y-1">
+                        <span className="text-base">🤖</span>
+                        <strong className="text-cyan-300 block text-xs font-bold">3. AI, Citizen &amp; 112 Emergency</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">6 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">AI4AP AI Suite, Citizen Portal, NERS 112, Shakti Women, MEESEVA, DLT SMS</span>
+                      </div>
+                      <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-1">
+                        <span className="text-base">🖥️</span>
+                        <strong className="text-emerald-300 block text-xs font-bold">4. IT Infrastructure &amp; DC</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">4 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">State Data Center, BSNL Police WAN, All-in-One Desktops, RTGS Integration</span>
+                      </div>
+                      <div className="p-3.5 bg-purple-500/10 border border-purple-500/30 rounded-xl space-y-1">
+                        <span className="text-base">🏛️</span>
+                        <strong className="text-purple-300 block text-xs font-bold">5. Admin, Logistics &amp; PCS&amp;S</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">12 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">PCS&amp;S Admin, MTO Fleet, Stores, District Data, Attachments, Peshi, eOffice, GeM, Trainings</span>
+                      </div>
+                    </div>
+                  </div>
+
                   <h3 className="text-base font-bold text-white mt-6">The Five Framework Layers</h3>
                   <div className="flex flex-col md:flex-row items-center justify-between gap-2 p-4 bg-slate-900/80 rounded-2xl border border-slate-800 text-xs text-center font-medium shadow-inner">
                     <div className="p-3 bg-blue-600/20 text-blue-300 rounded-xl w-full border border-blue-500/30"><strong>1. Project</strong><br/><span className="text-slate-400">e.g., CCTNS, Data Center</span></div>
@@ -316,6 +358,26 @@ export default function SystemGuidePage() {
                 </div>
 
                 <div className="space-y-6 text-xs text-slate-300">
+                  {/* 5-Segment Filter Pills & Grouped View */}
+                  <div className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-3">
+                    <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">
+                      <span>🏛️</span> 5-Segment Operational Filter Bar &amp; View Mode Switcher
+                    </div>
+                    <p>
+                      The top navigation bar of the Projects Directory provides instant filtering across the 5 strategic domains:
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700 space-y-1">
+                        <strong className="text-white block font-semibold">🔍 6 Segment Filter Pills</strong>
+                        <span className="text-slate-400 text-[11px]">Toggle between <strong>All Initiatives (36)</strong>, <strong>Core Policing (9)</strong>, <strong>Surveillance &amp; Cyber (5)</strong>, <strong>Citizen &amp; AI (6)</strong>, <strong>Infrastructure (4)</strong>, and <strong>Admin &amp; PCS&amp;S (12)</strong>.</span>
+                      </div>
+                      <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700 space-y-1">
+                        <strong className="text-white block font-semibold">🗂️ Grid View vs. Grouped View Switcher</strong>
+                        <span className="text-slate-400 text-[11px]">Switch between the standard 3-column Grid View and the <strong>Grouped View</strong>, which organizes initiatives under expandable segment command banners with live Staff FTE and Officer totals.</span>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Sorting Options Breakdown */}
                   <div className="p-5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-3">
                     <div className="flex items-center gap-2 text-blue-400 font-bold text-sm">

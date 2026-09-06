@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { useDashboardStats } from '@/lib/hooks/useRealtimeData';
+import { useDashboardStats, useProjects, useProjectFTEs } from '@/lib/hooks/useRealtimeData';
+import { PROJECT_SEGMENTS } from '@/types';
 import { cn } from '@/lib/utils';
 
 import { useState } from 'react';
@@ -22,6 +23,8 @@ import { useState } from 'react';
 export default function DashboardPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-09');
   const { stats, loading } = useDashboardStats(selectedMonth);
+  const { data: projects } = useProjects();
+  const { data: projectFTEs } = useProjectFTEs();
 
   if (loading) {
     return (
@@ -309,6 +312,100 @@ export default function DashboardPage() {
           </Link>
         </motion.div>
       </div>
+
+      {/* 5-Segment Operational Command Portfolios Widget */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="glass-card rounded-2xl p-6 border border-white/10 space-y-4"
+      >
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <span>🏛️</span> 5-Segment Operational Command Portfolios
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Strategic distribution of 36 technology initiatives across functional command verticals
+            </p>
+          </div>
+          <Link
+            href="/projects"
+            className="text-xs font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl border border-blue-500/20 transition-all self-start sm:self-auto"
+          >
+            <span>Explore All Portfolios</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {PROJECT_SEGMENTS.map((seg) => {
+            const segProjects = projects.filter((p) => p.segmentId === seg.id);
+            const fteMap = new Map(projectFTEs.map((f) => [f.projectId, f]));
+            const segStaffFTE = segProjects.reduce((sum, p) => {
+              const f = fteMap.get(p.id);
+              return sum + (f?.staffFTE ?? f?.effectiveFTE ?? 0);
+            }, 0);
+            const segOfficers = segProjects.reduce((sum, p) => {
+              const f = fteMap.get(p.id);
+              return sum + (f?.officerHeadcount ?? 0);
+            }, 0);
+            const segGreen = segProjects.filter((p) => (fteMap.get(p.id)?.status || 'green') === 'green').length;
+            const segAmber = segProjects.filter((p) => fteMap.get(p.id)?.status === 'amber').length;
+            const segRed = segProjects.filter((p) => fteMap.get(p.id)?.status === 'red').length;
+
+            return (
+              <Link
+                key={seg.id}
+                href={`/projects?segment=${seg.id}`}
+                className={cn(
+                  "p-4 rounded-2xl border transition-all duration-300 hover:scale-[1.02] flex flex-col justify-between shadow-lg group cursor-pointer",
+                  seg.badgeBg, seg.badgeBorder, "hover:border-white/40"
+                )}
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-2">
+                    <span className="text-2xl p-2 rounded-xl bg-slate-900/80 border border-white/10 shadow-inner group-hover:scale-110 transition-transform">
+                      {seg.icon}
+                    </span>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border",
+                      seg.badgeBg, seg.badgeText, seg.badgeBorder
+                    )}>
+                      {segProjects.length} Projects
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-white text-sm group-hover:text-blue-300 transition-colors line-clamp-1">
+                    {seg.shortName}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mt-1">
+                    {seg.description}
+                  </p>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-white/10 space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Staff Capacity:</span>
+                    <span className="font-bold text-emerald-400 font-mono">{segStaffFTE.toFixed(1)} FTE</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-400">Supervisors:</span>
+                    <span className="font-bold text-purple-400 font-mono">{segOfficers} Officers</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] pt-1">
+                    <span className="text-slate-500 font-medium">Health:</span>
+                    <div className="flex items-center gap-1 font-mono font-bold">
+                      <span className="text-emerald-400">{segGreen}🟢</span>
+                      {segAmber > 0 && <span className="text-amber-400">{segAmber}🟡</span>}
+                      {segRed > 0 && <span className="text-red-400">{segRed}🔴</span>}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </motion.div>
     </div>
   );
 }

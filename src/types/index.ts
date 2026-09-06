@@ -28,9 +28,88 @@ export interface Project {
   name: string;
   description: string;
   status: 'Active' | 'Inactive' | 'Completed';
+  segment?: string; // e.g. "Core Policing & Criminal Justice"
+  segmentId?: 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
+  segmentOrder?: number;
+  segmentIcon?: string;
   hierarchy: ProjectHierarchy;
   createdAt: Timestamp | string;
   updatedAt: Timestamp | string;
+}
+
+export interface ProjectSegment {
+  id: 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
+  name: string;
+  shortName: string;
+  order: number;
+  icon: string;
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  description: string;
+}
+
+export const PROJECT_SEGMENTS: ProjectSegment[] = [
+  {
+    id: 'core_policing',
+    name: 'Core Policing & Criminal Justice Systems',
+    shortName: 'Core Policing',
+    order: 1,
+    icon: '🚔',
+    badgeBg: 'bg-blue-500/15',
+    badgeText: 'text-blue-400',
+    badgeBorder: 'border-blue-500/30',
+    description: 'Crime recording, investigation tools, prosecution, court/prison integration, national intelligence, and traffic enforcement.'
+  },
+  {
+    id: 'surveillance_cyber',
+    name: 'Surveillance, Field Tech & Cyber Defense',
+    shortName: 'Surveillance & Cyber',
+    order: 2,
+    icon: '📹',
+    badgeBg: 'bg-indigo-500/15',
+    badgeText: 'text-indigo-400',
+    badgeBorder: 'border-indigo-500/30',
+    description: 'Video surveillance networks, police station CCTV, aerial drones, and network/endpoint cyber security.'
+  },
+  {
+    id: 'citizen_ai',
+    name: 'AI, Citizen Services & Emergency Response',
+    shortName: 'Citizen & AI',
+    order: 3,
+    icon: '🤖',
+    badgeBg: 'bg-cyan-500/15',
+    badgeText: 'text-cyan-400',
+    badgeBorder: 'border-cyan-500/30',
+    description: 'AI intelligence tools, 112 emergency response, women safety, and citizen delivery services.'
+  },
+  {
+    id: 'infrastructure',
+    name: 'IT Infrastructure, Network & Data Center',
+    shortName: 'Infrastructure & DC',
+    order: 4,
+    icon: '🖥️',
+    badgeBg: 'bg-emerald-500/15',
+    badgeText: 'text-emerald-400',
+    badgeBorder: 'border-emerald-500/30',
+    description: 'Tier-3 State Police Data Center, BSNL WAN connectivity, workstations, and RTGS feeds.'
+  },
+  {
+    id: 'admin_pcss',
+    name: 'Administration, Logistics & PCS&S Unit',
+    shortName: 'Admin & PCS&S',
+    order: 5,
+    icon: '🏛️',
+    badgeBg: 'bg-purple-500/15',
+    badgeText: 'text-purple-400',
+    badgeBorder: 'border-purple-500/30',
+    description: 'Departmental establishment, district data coordination, motor transport fleet, stores inventory, eOffice, and training.'
+  }
+];
+
+export function getProjectSegment(segmentId?: string): ProjectSegment {
+  const found = PROJECT_SEGMENTS.find(s => s.id === segmentId);
+  return found || PROJECT_SEGMENTS[0];
 }
 
 export interface ProjectHierarchy {

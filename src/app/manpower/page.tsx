@@ -7,6 +7,7 @@ import { createPerson } from '@/lib/firestore';
 import { cn } from '@/lib/utils';
 import { Search, Plus, Filter, Download } from 'lucide-react';
 import { RankRoleBadge } from '@/components/common/RankRoleBadge';
+import { PROJECT_SEGMENTS } from '@/types';
 
 export default function ManpowerPage() {
   const { data: persons, loading: personsLoading } = usePersons();
@@ -15,6 +16,7 @@ export default function ManpowerPage() {
   
   const [search, setSearch] = useState('');
   const [cadreFilter, setCadreFilter] = useState<'all' | 'officers' | 'staff'>('all');
+  const [segmentFilter, setSegmentFilter] = useState<string>('all');
   const [showAddPerson, setShowAddPerson] = useState(false);
   
   const [personForm, setPersonForm] = useState({
@@ -51,6 +53,9 @@ export default function ManpowerPage() {
       isOfficer,
       projectCode: project?.code || '',
       projectName: project?.name || '-',
+      segmentId: project?.segmentId || '',
+      segment: project?.segment || '',
+      segmentIcon: project?.segmentIcon || '📁',
       workstream: a.workstreamName,
       allocation: a.allocationPercent,
       totalAllocation: totalAlloc,
@@ -63,11 +68,13 @@ export default function ManpowerPage() {
       row.personName.toLowerCase().includes(search.toLowerCase()) || 
       row.projectName.toLowerCase().includes(search.toLowerCase()) ||
       row.projectCode.toLowerCase().includes(search.toLowerCase()) ||
+      row.segment.toLowerCase().includes(search.toLowerCase()) ||
       row.proId.toLowerCase().includes(search.toLowerCase());
 
     if (!matchesSearch) return false;
     if (cadreFilter === 'officers') return row.isOfficer;
     if (cadreFilter === 'staff') return !row.isOfficer;
+    if (segmentFilter !== 'all' && row.segmentId !== segmentFilter) return false;
     return true;
   });
 
@@ -142,39 +149,59 @@ export default function ManpowerPage() {
         </div>
       </div>
 
-      {/* Cadre Filter Pills & Search Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setCadreFilter('all')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-xs font-bold transition-all",
-              cadreFilter === 'all' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"
-            )}
-          >
-            All Cadres ({persons.length})
-          </button>
-          <button
-            onClick={() => setCadreFilter('officers')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-xs font-bold transition-all",
-              cadreFilter === 'officers' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
-            )}
-          >
-            🛡️ Command Officers ({officerCount})
-          </button>
-          <button
-            onClick={() => setCadreFilter('staff')}
-            className={cn(
-              "px-4 py-2 rounded-lg text-xs font-bold transition-all",
-              cadreFilter === 'staff' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
-            )}
-          >
-            👥 Operational Staff ({staffCount})
-          </button>
+      {/* Cadre Filter Pills & Segment Dropdown & Search Bar */}
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setCadreFilter('all')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                cadreFilter === 'all' ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"
+              )}
+            >
+              All Cadres ({persons.length})
+            </button>
+            <button
+              onClick={() => setCadreFilter('officers')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                cadreFilter === 'officers' ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+              )}
+            >
+              🛡️ Command Officers ({officerCount})
+            </button>
+            <button
+              onClick={() => setCadreFilter('staff')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-xs font-bold transition-all",
+                cadreFilter === 'staff' ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
+              )}
+            >
+              👥 Operational Staff ({staffCount})
+            </button>
+          </div>
+
+          {/* Segment Filter Dropdown */}
+          <div className="flex items-center gap-2 bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-700 text-xs shadow-inner">
+            <Filter className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+            <span className="text-slate-400 font-semibold whitespace-nowrap">Segment:</span>
+            <select
+              value={segmentFilter}
+              onChange={(e) => setSegmentFilter(e.target.value)}
+              className="bg-transparent text-xs font-bold text-white focus:outline-none cursor-pointer"
+            >
+              <option value="all" className="bg-slate-900 text-white">📁 All Segments (5)</option>
+              {PROJECT_SEGMENTS.map(s => (
+                <option key={s.id} value={s.id} className="bg-slate-900 text-white">
+                  {s.icon} {s.shortName}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div className="relative w-full sm:max-w-md">
+        <div className="relative w-full lg:max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
@@ -194,7 +221,7 @@ export default function ManpowerPage() {
                 <th className="p-4 font-medium">PRO-ID</th>
                 <th className="p-4 font-medium">Name</th>
                 <th className="p-4 font-medium">Rank &amp; Role</th>
-                <th className="p-4 font-medium">Project</th>
+                <th className="p-4 font-medium">Project &amp; Segment</th>
                 <th className="p-4 font-medium">Workstream</th>
                 <th className="p-4 font-medium text-right">Alloc %</th>
                 <th className="p-4 font-medium text-right">Total Alloc %</th>
@@ -225,14 +252,22 @@ export default function ManpowerPage() {
                     <RankRoleBadge rank={row.rank} />
                   </td>
                   <td className="p-4">
-                    <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium flex items-center gap-1.5 flex-wrap">
-                      {row.projectCode && (
-                        <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
-                          {row.projectCode}
-                        </span>
+                    <div className="space-y-1">
+                      <Link href={`/projects?id=${row.projectId}`} className="text-blue-400 hover:underline font-medium flex items-center gap-1.5 flex-wrap">
+                        {row.projectCode && (
+                          <span className="px-1.5 py-0.2 bg-blue-500/10 text-blue-300 border border-blue-500/20 rounded font-mono text-[11px] font-semibold">
+                            {row.projectCode}
+                          </span>
+                        )}
+                        <span>{row.projectName}</span>
+                      </Link>
+                      {row.segment && (
+                        <div className="text-[10px] text-slate-400 flex items-center gap-1">
+                          <span>{row.segmentIcon}</span>
+                          <span className="truncate max-w-[200px]">{row.segment}</span>
+                        </div>
                       )}
-                      <span>{row.projectName}</span>
-                    </Link>
+                    </div>
                   </td>
                   <td className="p-4 text-slate-300">{row.workstream}</td>
                   <td className="p-4 text-right font-mono">{row.allocation}%</td>
