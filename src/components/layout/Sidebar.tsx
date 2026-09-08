@@ -17,13 +17,16 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
-  Layers
+  Layers,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/components/theme/ThemeProvider';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, badge: '' },
-  { name: 'Projects', href: '/projects', icon: FolderKanban, badge: '35' },
+  { name: 'Projects', href: '/projects', icon: FolderKanban, badge: '36' },
   { name: 'Manpower Matrix', href: '/manpower', icon: Users, badge: '142' },
   { name: 'Scorecards', href: '/scorecards', icon: ClipboardList, badge: '' },
   { name: 'Commitments', href: '/commitments', icon: Target, badge: '' },
@@ -44,6 +47,7 @@ const mobileNavItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
   // Default to collapsed for a compact, space-maximizing view
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
@@ -183,8 +187,36 @@ export function Sidebar() {
           })}
         </nav>
 
-        {/* Bottom Profile / Command Footer */}
-        <div className={cn("mt-auto pt-4 border-t border-slate-800/80 transition-all", isCollapsed ? "px-1" : "px-2")}>
+        {/* Bottom Theme Switcher & Profile Footer */}
+        <div className={cn("mt-auto pt-3 space-y-2.5 border-t border-slate-800/80 transition-all", isCollapsed ? "px-1" : "px-2")}>
+          {/* Theme Toggle Button */}
+          <button
+            onClick={toggleTheme}
+            className={cn(
+              "w-full flex items-center rounded-xl transition-all duration-200 cursor-pointer group",
+              isCollapsed 
+                ? "justify-center w-12 h-10 mx-auto bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700/60 text-amber-400" 
+                : "gap-3 px-3 py-2 bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800 text-slate-300 hover:text-white"
+            )}
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400 flex-shrink-0 transition-transform group-hover:rotate-45" />
+            ) : (
+              <Moon className="w-4 h-4 text-sky-400 flex-shrink-0 transition-transform group-hover:-rotate-12" />
+            )}
+
+            {!isCollapsed && (
+              <div className="flex items-center justify-between flex-1 text-xs font-medium">
+                <span>{theme === 'dark' ? "Light Mode" : "Dark Mode"}</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-400 border border-slate-700">
+                  {theme === 'dark' ? "☀️ Light" : "🌙 Dark"}
+                </span>
+              </div>
+            )}
+          </button>
+
+          {/* IGP Command Footer */}
           <div 
             className={cn(
               "flex items-center rounded-xl bg-slate-900/60 border border-slate-800 relative group cursor-pointer hover:border-slate-700 transition-all",
@@ -242,7 +274,7 @@ export function Sidebar() {
           );
         })}
 
-        {/* Mobile Guide/More link */}
+        {/* Mobile Guide link */}
         <Link 
           href="/guide" 
           className={cn(
@@ -260,6 +292,20 @@ export function Sidebar() {
             Guide
           </span>
         </Link>
+
+        {/* Mobile Theme Switcher */}
+        <button 
+          onClick={toggleTheme}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 py-1.5 rounded-xl transition-all text-slate-400 hover:text-slate-200 cursor-pointer"
+          title="Toggle Theme"
+        >
+          <div className="p-1 rounded-lg text-amber-400 bg-slate-800/60">
+            {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5 text-sky-400" />}
+          </div>
+          <span className="text-[10px] font-semibold text-center tracking-tight">
+            {theme === 'dark' ? 'Light' : 'Dark'}
+          </span>
+        </button>
       </div>
     </>
   );

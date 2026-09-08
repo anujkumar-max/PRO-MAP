@@ -28,9 +28,10 @@ export interface Project {
   name: string;
   description: string;
   status: 'Active' | 'Inactive' | 'Completed';
-  segment?: string; // e.g. "Core Policing & Criminal Justice"
-  segmentId?: 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
+  segment?: string; // e.g. "CCTNS & Extensions"
+  segmentId?: 'cctns_extensions' | 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
   segmentOrder?: number;
+  priorityOrder?: number;
   segmentIcon?: string;
   hierarchy: ProjectHierarchy;
   createdAt: Timestamp | string;
@@ -38,7 +39,7 @@ export interface Project {
 }
 
 export interface ProjectSegment {
-  id: 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
+  id: 'cctns_extensions' | 'core_policing' | 'surveillance_cyber' | 'citizen_ai' | 'infrastructure' | 'admin_pcss';
   name: string;
   shortName: string;
   order: number;
@@ -51,9 +52,9 @@ export interface ProjectSegment {
 
 export const PROJECT_SEGMENTS: ProjectSegment[] = [
   {
-    id: 'core_policing',
-    name: 'Core Policing & Criminal Justice Systems',
-    shortName: 'Core Policing',
+    id: 'cctns_extensions',
+    name: 'CCTNS & Extensions',
+    shortName: 'CCTNS & Extensions',
     order: 1,
     icon: '🚔',
     badgeBg: 'bg-blue-500/15',
@@ -108,6 +109,7 @@ export const PROJECT_SEGMENTS: ProjectSegment[] = [
 ];
 
 export function getProjectSegment(segmentId?: string): ProjectSegment {
+  if (segmentId === 'core_policing') return PROJECT_SEGMENTS[0];
   const found = PROJECT_SEGMENTS.find(s => s.id === segmentId);
   return found || PROJECT_SEGMENTS[0];
 }

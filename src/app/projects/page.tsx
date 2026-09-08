@@ -106,8 +106,8 @@ function ProjectsContent() {
     name: '',
     description: '',
     status: 'Active' as const,
-    segmentId: 'core_policing' as any,
-    segment: 'Core Policing & Criminal Justice Systems',
+    segmentId: 'cctns_extensions' as any,
+    segment: 'CCTNS & Extensions',
     segmentOrder: 1,
     segmentIcon: '🚔',
     hierarchy: { igp: 'IGP (Tech Services)', sp: '', addlSp: '', dsp: '', ci: '', si: '' },
@@ -143,7 +143,7 @@ function ProjectsContent() {
   const filteredProjects = React.useMemo(() => {
     let list = projectListWithHealth;
     if (segmentFilter !== 'all') {
-      list = list.filter((p) => p.segmentId === segmentFilter);
+      list = list.filter((p) => p.segmentId === segmentFilter || (segmentFilter === 'cctns_extensions' && p.segmentId === 'core_policing'));
     }
     if (healthFilter !== 'all') {
       list = list.filter((p) => p.healthStatus === healthFilter);
@@ -203,8 +203,8 @@ function ProjectsContent() {
       name: '',
       description: '',
       status: 'Active',
-      segmentId: 'core_policing',
-      segment: 'Core Policing & Criminal Justice Systems',
+      segmentId: 'cctns_extensions',
+      segment: 'CCTNS & Extensions',
       segmentOrder: 1,
       segmentIcon: '🚔',
       hierarchy: { igp: 'IGP (Tech Services)', sp: '', addlSp: '', dsp: '', ci: '', si: '' },
@@ -531,7 +531,7 @@ function ProjectsContent() {
                   <div className="mb-3 flex items-center gap-1.5">
                     <span className={cn(
                       "px-2 py-0.5 rounded-lg text-[10px] font-bold border inline-flex items-center gap-1",
-                      project.segmentId === 'core_policing' && "bg-blue-500/15 text-blue-300 border-blue-500/30",
+                      (project.segmentId === 'cctns_extensions' || project.segmentId === 'core_policing') && "bg-blue-500/15 text-blue-300 border-blue-500/30",
                       project.segmentId === 'surveillance_cyber' && "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
                       project.segmentId === 'citizen_ai' && "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
                       project.segmentId === 'infrastructure' && "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -647,7 +647,14 @@ function ProjectsContent() {
         /* Grouped View by 5 Segments */
         <div className="space-y-10">
           {PROJECT_SEGMENTS.filter(seg => segmentFilter === 'all' || segmentFilter === seg.id).map((seg) => {
-            const segProjects = filteredProjects.filter(p => p.segmentId === seg.id);
+            const segProjects = filteredProjects
+              .filter(p => p.segmentId === seg.id || (seg.id === 'cctns_extensions' && p.segmentId === 'core_policing'))
+              .sort((a, b) => {
+                if (sortBy === 'id') {
+                  return (a.priorityOrder ?? 99) - (b.priorityOrder ?? 99) || (a.code || '').localeCompare(b.code || '');
+                }
+                return 0;
+              });
             if (segProjects.length === 0 && search.trim()) return null;
 
             const segStaffFTE = segProjects.reduce((sum, p) => sum + (p.stats?.staffFTE ?? p.stats?.effectiveFTE ?? 0), 0);
@@ -768,7 +775,7 @@ function ProjectsContent() {
                   <div className="mb-3 flex items-center gap-1.5">
                     <span className={cn(
                       "px-2 py-0.5 rounded-lg text-[10px] font-bold border inline-flex items-center gap-1",
-                      project.segmentId === 'core_policing' && "bg-blue-500/15 text-blue-300 border-blue-500/30",
+                      (project.segmentId === 'cctns_extensions' || project.segmentId === 'core_policing') && "bg-blue-500/15 text-blue-300 border-blue-500/30",
                       project.segmentId === 'surveillance_cyber' && "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
                       project.segmentId === 'citizen_ai' && "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
                       project.segmentId === 'infrastructure' && "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
@@ -1229,7 +1236,7 @@ function ProjectDetailPanel({
             <span className="font-semibold text-slate-400 uppercase tracking-wider">Segment:</span>
             <span className={cn(
               "px-3 py-1.5 rounded-xl border font-bold inline-flex items-center gap-2 shadow-md",
-              project.segmentId === 'core_policing' && "bg-blue-500/15 text-blue-300 border-blue-500/30",
+              (project.segmentId === 'cctns_extensions' || project.segmentId === 'core_policing') && "bg-blue-500/15 text-blue-300 border-blue-500/30",
               project.segmentId === 'surveillance_cyber' && "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
               project.segmentId === 'citizen_ai' && "bg-cyan-500/15 text-cyan-300 border-cyan-500/30",
               project.segmentId === 'infrastructure' && "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",

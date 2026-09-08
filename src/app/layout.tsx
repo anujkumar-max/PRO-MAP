@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Sidebar } from '@/components/layout/Sidebar';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
 import { cn } from '@/lib/utils';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -18,11 +19,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className={cn(inter.className, "bg-[#0F172A] text-white min-h-screen flex flex-col md:flex-row overflow-hidden")}>
-        <Sidebar />
-        <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
-          {children}
-        </main>
+      <body className={cn(inter.className, "bg-[#0F172A] text-slate-100 min-h-screen flex flex-col md:flex-row overflow-hidden transition-colors duration-200")}>
+        <ThemeProvider>
+          <Sidebar />
+          <main className="flex-1 h-screen overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
+            {children}
+          </main>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -216,33 +216,33 @@ export default function SystemGuidePage() {
                     <div className="grid grid-cols-1 md:grid-cols-5 gap-3 pt-1">
                       <div className="p-3.5 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-1">
                         <span className="text-base">🚔</span>
-                        <strong className="text-blue-300 block text-xs font-bold">1. Core Policing &amp; Criminal Justice</strong>
-                        <span className="text-[11px] text-slate-400 block font-mono">9 Initiatives</span>
-                        <span className="text-[10px] text-slate-400 leading-tight block">CCTNS, ICJS, APCOPS 2.0, Cri-Mac, CEIR, NATGRID, E-CHALLAN, e-dar, PM Gatishakti</span>
+                        <strong className="text-blue-300 block text-xs font-bold">1. CCTNS &amp; Extensions</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">13 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">CCTNS, ICJS, SASE &amp; XDR, AI4AP, All-in-One Desktops, BSNL Connectivity, APCOPS 2.0, CEIR, Cri-Mac, E-CHALLAN, e-dar, NATGRID, PM Gatishakti</span>
                       </div>
                       <div className="p-3.5 bg-indigo-500/10 border border-indigo-500/30 rounded-xl space-y-1">
                         <span className="text-base">📹</span>
-                        <strong className="text-indigo-300 block text-xs font-bold">2. Surveillance, Drones &amp; Cyber</strong>
-                        <span className="text-[11px] text-slate-400 block font-mono">5 Initiatives</span>
-                        <span className="text-[10px] text-slate-400 leading-tight block">CCTV in PS, CCTV-360 Cloud, DRONES, LHMS &amp; BWC, SASE &amp; XDR Defense</span>
+                        <strong className="text-indigo-300 block text-xs font-bold">2. Surveillance, Field Tech &amp; Cyber</strong>
+                        <span className="text-[11px] text-slate-400 block font-mono">4 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">CCTV360 (MATRIX) – Public Cameras, CCTVs, DRONES, LHMS &amp; BWC</span>
                       </div>
                       <div className="p-3.5 bg-cyan-500/10 border border-cyan-500/30 rounded-xl space-y-1">
                         <span className="text-base">🤖</span>
                         <strong className="text-cyan-300 block text-xs font-bold">3. AI, Citizen &amp; 112 Emergency</strong>
-                        <span className="text-[11px] text-slate-400 block font-mono">6 Initiatives</span>
-                        <span className="text-[10px] text-slate-400 leading-tight block">AI4AP AI Suite, Citizen Portal, NERS 112, Shakti Women, MEESEVA, DLT SMS</span>
+                        <span className="text-[11px] text-slate-400 block font-mono">5 Initiatives (Staff-Ordered)</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">NERS 112 (65 Staff), Shakti (12 Staff), Citizen Portal, MEESEVA, DLT SMS</span>
                       </div>
                       <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl space-y-1">
                         <span className="text-base">🖥️</span>
                         <strong className="text-emerald-300 block text-xs font-bold">4. IT Infrastructure &amp; DC</strong>
-                        <span className="text-[11px] text-slate-400 block font-mono">4 Initiatives</span>
-                        <span className="text-[10px] text-slate-400 leading-tight block">State Data Center, BSNL Police WAN, All-in-One Desktops, RTGS Integration</span>
+                        <span className="text-[11px] text-slate-400 block font-mono">2 Initiatives</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">State Data Center (13 Staff), RTGS Integration</span>
                       </div>
                       <div className="p-3.5 bg-purple-500/10 border border-purple-500/30 rounded-xl space-y-1">
                         <span className="text-base">🏛️</span>
                         <strong className="text-purple-300 block text-xs font-bold">5. Admin, Logistics &amp; PCS&amp;S</strong>
                         <span className="text-[11px] text-slate-400 block font-mono">12 Initiatives</span>
-                        <span className="text-[10px] text-slate-400 leading-tight block">PCS&amp;S Admin, MTO Fleet, Stores, District Data, Attachments, Peshi, eOffice, GeM, Trainings</span>
+                        <span className="text-[10px] text-slate-400 leading-tight block">PCS&amp;S Admin, MTO Fleet, Stores, District Data, External &amp; Officer Attachments, Peshi, eOffice, GeM, Trainings</span>
                       </div>
                     </div>
                   </div>
@@ -369,7 +369,7 @@ export default function SystemGuidePage() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                       <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700 space-y-1">
                         <strong className="text-white block font-semibold">🔍 6 Segment Filter Pills</strong>
-                        <span className="text-slate-400 text-[11px]">Toggle between <strong>All Initiatives (36)</strong>, <strong>Core Policing (9)</strong>, <strong>Surveillance &amp; Cyber (5)</strong>, <strong>Citizen &amp; AI (6)</strong>, <strong>Infrastructure (4)</strong>, and <strong>Admin &amp; PCS&amp;S (12)</strong>.</span>
+                        <span className="text-slate-400 text-[11px]">Toggle between <strong>All Initiatives (36)</strong>, <strong>CCTNS &amp; Extensions (13)</strong>, <strong>Surveillance &amp; Cyber (4)</strong>, <strong>Citizen &amp; AI (5)</strong>, <strong>Infrastructure (2)</strong>, and <strong>Admin &amp; PCS&amp;S (12)</strong>.</span>
                       </div>
                       <div className="p-3 bg-slate-800/60 rounded-xl border border-slate-700 space-y-1">
                         <strong className="text-white block font-semibold">🗂️ Grid View vs. Grouped View Switcher</strong>
